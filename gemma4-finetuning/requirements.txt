@@ -1,0 +1,11 @@
+# Tested against the VESSL-domain v2-B run on 2026-04-16 with
+# pytorch/pytorch:2.5.1-cuda12.4-cudnn9-devel.
+#
+# Torch is provided by the container image; not re-pinned here to avoid
+# container/CUDA mismatches. On a fresh environment without a PyTorch-enabled
+# image, install torch matching your CUDA version first.
+
+unsloth>=2024.9
+trl>=0.11
+transformers>=4.45
+datasets>=3.0
