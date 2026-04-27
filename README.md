@@ -8,7 +8,7 @@ Each top-level folder is a self-contained recipe. Clone the repo (or just the fo
 
 | Recipe | Task | GPU | Approx. cost | Approx. time |
 |--------|------|-----|-------------:|-------------:|
-| [gemma4-finetuning](./gemma4-finetuning) | LoRA fine-tune Gemma 4 E4B on a small domain QA dataset | A100 SXM 80 GB × 1 | ~$0.43 | ~16 min |
+| [gemma4-finetuning](./gemma4-finetuning) (reference implementation) | LoRA fine-tune Gemma 4 E4B on a small domain QA dataset | A100 SXM 80 GB × 1 | ~$0.43 | ~16 min |
 
 Prices as of 2026-04-16; see each recipe's `benchmarks.md` for details.
 
@@ -31,9 +31,14 @@ Prices as of 2026-04-16; see each recipe's `benchmarks.md` for details.
 - [vesslctl](https://docs.vessl.ai/) installed and authenticated (required for Path B).
 - A Hugging Face access token for gated models (Gemma 4 is gated).
 
-## Contributing
+## Contributing a recipe
 
-Issues and new-recipe proposals are welcome. See [CONTRIBUTING.md](./CONTRIBUTING.md).
+1. Open an issue describing the recipe (task, model, target GPU, expected cost/time).
+2. Copy the skeleton: `cp -r _template my-new-recipe` and fill in the TODOs. The reference implementation is [`gemma4-finetuning/`](./gemma4-finetuning) — match its section structure where it makes sense.
+3. Run end-to-end on VESSL Cloud and record measured numbers in `benchmarks.md`.
+4. Open a PR.
+
+AI coding assistants (Claude Code, Cursor, Codex, Aider) work well here — point them at the reference recipe + your `_template/` copy. See [CONTRIBUTING.md](./CONTRIBUTING.md) for a worked prompt and the full checklist.
 
 ## License
 

@@ -1,0 +1,7 @@
+# TODO: pin the package versions you tested with this recipe.
+# After a successful end-to-end run, capture the relevant deps
+# (e.g., `pip freeze | grep -iE 'unsloth|trl|transformers|datasets'`)
+# and replace `>=` with `==` for reproducibility.
+#
+# Note: torch is usually provided by the container image; do not
+# re-pin it here unless your recipe runs on a torch-less base image.

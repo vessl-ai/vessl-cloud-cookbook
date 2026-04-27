@@ -20,6 +20,26 @@ Each recipe lives in its own top-level folder and is self-contained:
 
 See `gemma4-finetuning/` as the reference implementation.
 
+## Add a recipe
+
+1. Open an issue first (see "Propose a recipe" above) and wait for go-ahead.
+2. Copy the skeleton:
+   ```bash
+   cp -r _template my-new-recipe
+   ```
+   `_template/` mirrors the directory layout above with TODO markers in every file. Fill them in.
+3. Walk through your recipe end-to-end on VESSL Cloud and record the actual numbers in `benchmarks.md`. Estimates aren't useful here — we ship measured runs.
+4. Clear notebook outputs (`jupyter nbconvert --clear-output --inplace notebook/<recipe>.ipynb`) before committing.
+5. Open a PR. Maintainers will sanity-check the layout and verify the dataset/PII before merging.
+
+### Using AI coding assistants
+
+If you're using Claude Code, Cursor, Codex, Aider, or similar to convert an existing notebook or script into a recipe, point the assistant at `gemma4-finetuning/` (the reference implementation) and your `_template/`-based draft. A prompt that works:
+
+> Use `gemma4-finetuning/` as the reference and convert my existing fine-tune at `<path>` into a new recipe under `<recipe-folder>/`. Keep the same section structure (LoRA hyperparameters, Custom data, Evaluation, Load adapter, Known limitations) where applicable, fill in the TODOs, and clear notebook outputs before saving.
+
+The assistant has enough signal from the reference recipe + template + this guide to produce a draft you can polish.
+
 ## What "self-contained" means
 
 A reader should be able to clone the repo, open a workspace on VESSL Cloud, and run the recipe without reading any other document. In practice:
