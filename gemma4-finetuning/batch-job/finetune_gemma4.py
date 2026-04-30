@@ -16,6 +16,13 @@ Environment variables:
                   Default: unix epoch timestamp.
   DATASET_PATH    Path to the VESSL QA JSON (vessl mode only).
                   Default: /shared/datasets/vessl-cloud-qa-dataset.json
+  LORA_R          LoRA rank. Default: 32 (vessl mode), 8 (generic mode).
+  LORA_ALPHA      LoRA scaling. Default: same as LORA_R (alpha == r convention).
+  LEARNING_RATE   Peak learning rate. Default: 5e-4 (vessl), 2e-4 (generic).
+
+The hyperparameter env vars above let one script back many jobs in a sweep.
+Set RUN_TAG to a unique string per variant (e.g. RUN_TAG=lr-1e-4-r-32) so
+each run writes to its own output directory.
 
 Outputs (written to $OUTPUT_BASE/gemma4-$MODE-$RUN_TAG/):
   final/          Saved LoRA adapter + tokenizer.
@@ -178,10 +185,10 @@ stage_start("lora_attach")
 # Mode-dependent LoRA capacity:
 # - generic: small dataset fine-tune is about style, r=8 is standard unsloth default
 # - vessl: need enough parameters to memorize 36 domain facts, bump to r=32
-if MODE == "vessl":
-    lora_r, lora_alpha = 32, 32
-else:
-    lora_r, lora_alpha = 8, 8
+# Both can be overridden via LORA_R / LORA_ALPHA env vars for sweep runs.
+default_r = 32 if MODE == "vessl" else 8
+lora_r = int(os.environ.get("LORA_R", default_r))
+lora_alpha = int(os.environ.get("LORA_ALPHA", lora_r))
 
 model = FastModel.get_peft_model(
     model,
@@ -368,6 +375,9 @@ stage_start("training")
 from trl import SFTConfig, SFTTrainer
 from unsloth.chat_templates import train_on_responses_only
 
+default_lr = 5e-4 if MODE == "vessl" else 2e-4
+learning_rate = float(os.environ.get("LEARNING_RATE", default_lr))
+
 if MODE == "generic":
     cfg = SFTConfig(
         dataset_text_field="text",
@@ -375,7 +385,7 @@ if MODE == "generic":
         gradient_accumulation_steps=4,
         warmup_steps=5,
         max_steps=60,
-        learning_rate=2e-4,
+        learning_rate=learning_rate,
         logging_steps=1,
         optim="adamw_8bit",
         weight_decay=0.001,
@@ -386,7 +396,7 @@ if MODE == "generic":
     )
     metrics["training_config"] = {
         "max_steps": 60,
-        "learning_rate": 2e-4,
+        "learning_rate": learning_rate,
         "batch_size": 1,
         "grad_accum": 4,
         "scheduler": "linear",
@@ -400,7 +410,7 @@ else:
         gradient_accumulation_steps=2,
         warmup_steps=10,
         num_train_epochs=20,
-        learning_rate=5e-4,
+        learning_rate=learning_rate,
         logging_steps=10,
         optim="adamw_8bit",
         weight_decay=0.01,
@@ -411,7 +421,7 @@ else:
     )
     metrics["training_config"] = {
         "num_train_epochs": 20,
-        "learning_rate": 5e-4,
+        "learning_rate": learning_rate,
         "batch_size": 1,
         "grad_accum": 2,
         "scheduler": "cosine",
