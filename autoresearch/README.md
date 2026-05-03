@@ -14,7 +14,7 @@ better model.
 
 | GPU | Cost / experiment | Wall time per experiment | Peak VRAM | Baseline val_bpb |
 |-----|------------------:|-------------------------:|----------:|-----------------:|
-| A100 SXM 80 GB × 1 (betelgeuse-na, $1.55/hr) | ~$0.23 | ~8m46s (5 min train + ~3:46 startup) | 44.0 GB | 1.109645 |
+| H100 SXM 80 GB × 1 (deneb-kr, $2.39/hr) | ~$0.33 | ~8m21s (5 min train + ~3:21 startup) | 44.0 GB | 1.010748 |
 
 Numbers measured 2026-05-03 on VESSL Cloud — full breakdown in [benchmarks.md](./benchmarks.md).
 
@@ -173,95 +173,33 @@ is much more interesting once you can actually run experiments in
 parallel — different research directions, different priors, late-night
 synthesis when they all check in.
 
-## Example research cycles
+## Example research cycle
 
-Two real 16-experiment, 4-round Mode B cycles are bundled as references —
-the **same agent loop** run against two different GPUs, so you can see
-how the choice of compute changes which hyperparameters win.
+A real 16-experiment, 4-round Mode B cycle on H100 SXM ×1 (deneb-kr) is
+bundled as a reference: see [`results.example.tsv`](./results.example.tsv)
+and [`progress.png`](./progress.png).
 
-### A100 SXM ×1 (betelgeuse-na, $1.55/hr)
+![progress](./progress.png)
 
-![progress A100](./progress.a100.png)
+The story it tells (4 KEEPs out of 16):
 
-[`results.example.a100.tsv`](./results.example.a100.tsv) — 2 KEEPs out of 16:
-
-- **Rounds 1–2** (experiments 1–7): single-knob tweaks (`EMBEDDING_LR`,
-  `WEIGHT_DECAY`, `WINDOW_PATTERN`, `WARMDOWN_RATIO`, `ADAM_BETAS`,
-  `MATRIX_LR`, `WARMUP_RATIO`). None beat baseline.
-- **Round 3** (experiments 8–11): **breakthrough** — `TOTAL_BATCH_SIZE
-  2^19 → 2^18` doubles the optimizer steps that fit in 5 minutes on A100
-  (defaults were tuned for H100's higher throughput). val_bpb drops from
-  1.109 → **1.050**, a 5.3% improvement.
-- **Round 4** (experiments 12–15): refinements on top of the round-3
-  winner. None beat it. The recipe converged.
-
-Total: **~$3.68**, **~40 min** wall time.
-
-### H100 SXM ×1 (deneb-kr, $2.39/hr)
-
-![progress H100](./progress.h100.png)
-
-[`results.example.h100.tsv`](./results.example.h100.tsv) — 4 KEEPs out of 16:
-
-- **Round 1** (experiments 1–3): same single-knob tweaks. None beat
-  baseline (1.0107).
-- **Round 2** (experiments 4–7): **first improvement** — `MATRIX_LR
-  0.04 → 0.05` drops val_bpb to 1.0081.
-- **Round 3** (experiments 8–11): **same `TOTAL_BATCH_SIZE 2^19 → 2^18`
-  trick wins again** — drops to 0.9986. Smaller batch helps even on H100,
-  not just A100.
+- **Round 1** (experiments 1–3): single-knob tweaks (`EMBEDDING_LR`,
+  `WEIGHT_DECAY`, `WINDOW_PATTERN`). None beat baseline (1.0107).
+- **Round 2** (experiments 4–7): **first improvement** — `MATRIX_LR 0.04
+  → 0.05` drops val_bpb to 1.0081.
+- **Round 3** (experiments 8–11): **`TOTAL_BATCH_SIZE 2^19 → 2^18`
+  wins** — smaller batch fits more optimizer steps in the fixed 5-minute
+  budget. val_bpb drops to 0.9986.
 - **Round 4** (experiments 12–15): on top of the smaller batch, going
-  *deeper* (DEPTH 8 → 10) wins — **val_bpb = 0.9856**, the best run of
-  either cycle. H100 has the headroom for the bigger model that A100
-  doesn't.
+  *deeper* (DEPTH 8 → 10) wins — **val_bpb = 0.9856**, beating karpathy's
+  published 0.9979 reference.
 
-Total: **~$5.10**, **~40 min** wall time, **2.5% improvement**.
+Total spend: **~$5.10** (16 experiments × ~$0.33 each at $2.39/hr H100).
+Wall time: **~40 minutes** (4 rounds × ~10 min each, 4 jobs running in
+parallel per round). The same work would take ~2 hours of sequential
+compute on a single H100 in the original autoresearch.
 
-### A100 SXM ×1 with 10-min budget (betelgeuse-na, $1.55/hr)
-
-![progress A100×10m](./progress.a100-10m.png)
-
-[`results.example.a100-10m.tsv`](./results.example.a100-10m.tsv) — 3 KEEPs out of 16. *This cycle modified `prepare.py`'s `TIME_BUDGET` from 300s to 600s on the experiment branch only. Don't mix with the other two cycles' results — the eval is identical but the training compute is 2×.*
-
-- **Rounds 1–2** (experiments 1–7): single-knob tweaks. No genuine wins — all candidates within ±0.003 of baseline (1.0469). Notably, MATRIX_LR=0.05 didn't help here (it did on H100×5m).
-- **Round 3** (experiments 8–11): **same `TOTAL_BATCH_SIZE 2^19 → 2^18` win** — val_bpb 1.0469 → **1.0015**, the big drop again.
-- **Round 4** (experiments 12–15): c14 (`c10 + EMBEDDING_LR=0.5`) edged out c10 by 0.0005 (within noise, charitably called a win). DEPTH=10 *didn't* win here (it did on H100) — A100 lacks the throughput for the deeper model even with 2× the time.
-
-Total: **~$7.40**, **~60 min** wall time, **4.4% improvement**.
-
-### What changed across configurations
-
-Different baselines, different winners, *one tweak in common across all three*:
-
-| | A100 ×1 (5 min) | A100 ×1 (10 min) | H100 ×1 (5 min) |
-|---|---:|---:|---:|
-| Baseline val_bpb | 1.1094 | 1.0469 | 1.0107 |
-| Best val_bpb | 1.0505 | 1.0010 | **0.9856** |
-| Improvement | 5.3% | 4.4% | 2.5% |
-| Round-2 winner (Adam/Muon LR) | none | none | `MATRIX_LR=0.05` |
-| Round-3 winner (model/batch) | `BATCH=2^18` | `BATCH=2^18` | `BATCH=2^18` |
-| Round-4 winner (refine c10) | none | `EMBEDDING_LR=0.5` (noise) | `DEPTH=10` |
-| Total cost | ~$3.68 | ~$7.40 | ~$5.10 |
-| Total wall time | ~40 min | ~60 min | ~40 min |
-
-Three observations:
-
-- **A100×10min ≈ H100×5min in compute, but not in val_bpb** (1.0010 vs 0.9856). Doubling A100 wall time gets close to but not past H100 — H100 has architectural advantages (FA3 native, higher MFU at 31% vs A100's 16%) that aren't just throughput.
-- **`TOTAL_BATCH_SIZE 2^19 → 2^18` is the universal winner** — same hyperparameter wins all three cycles. Strong evidence the upstream default is over-tuned for batch-size assumptions that don't hold under any 5–10 min budget.
-- **Hardware-specific tweaks don't transfer.** `MATRIX_LR=0.05` helps only on H100; `DEPTH=10` only when both H100 and a smaller-batch base. Generic "this LR is better" advice doesn't survive a hardware swap.
-
-Two takeaways:
-
-- **The H100 baseline is already what you'd expect** (~karpathy's
-  reference of 0.998); A100 is ~10% worse out of the box because there's
-  less compute per second to spend.
-- **The same hyperparameter knob (`TOTAL_BATCH_SIZE 2^19 → 2^18`) wins
-  on both GPUs.** On A100 it's *the* breakthrough; on H100 it's an
-  intermediate stop on the way to making the model deeper. Smaller
-  batches → more optimizer steps → faster convergence in a fixed wall-
-  clock budget.
-
-To regenerate either chart from your own `results.tsv`, run
+To regenerate `progress.png` from your own `results.tsv`, run
 `analysis.ipynb` (or `jupyter nbconvert --execute analysis.ipynb`).
 
 ## How submit.sh works
@@ -292,13 +230,16 @@ runs only once (in `prep.sh`) and every subsequent job skips it.
 | Var | Required | Default |
 |---|---|---|
 | `AUTORESEARCH_CACHE_VOLUME` | yes | — |
-| `AUTORESEARCH_RESOURCE_SPEC` | no | `resourcespec-a100x1` (A100 SXM × 1, betelgeuse-na) |
+| `AUTORESEARCH_RESOURCE_SPEC` | no | `resourcespec-5qp3iq5lcd90` (H100 SXM × 1, deneb-kr) |
 | `AUTORESEARCH_IMAGE` | no | `pytorch/pytorch:2.4.1-cuda12.4-cudnn9-devel` |
 | `AUTORESEARCH_REPO_URL` | no | `https://github.com/vessl-ai/vessl-cloud-cookbook.git` |
-| `AUTORESEARCH_TIMEOUT_S` | no | `1200` (submit.sh only) |
+| `AUTORESEARCH_TIMEOUT_S` | no | `1800` (submit.sh only) |
 
-For an H100 baseline that matches karpathy's numbers, set
-`AUTORESEARCH_RESOURCE_SPEC=resourcespec-5qp3iq5lcd90` (deneb-kr H100x1).
+To run cheaper on A100 SXM ×1, set `AUTORESEARCH_RESOURCE_SPEC=resourcespec-a100x1`
+(betelgeuse-na, $1.55/hr). Note that `train.py` falls back to
+`kernels-community/flash-attn3` on non-Hopper GPUs (the upstream code
+already handles this), so it runs fine — but val_bpb numbers are not
+directly comparable to H100 / karpathy's reference.
 
 ## Known limitations
 
@@ -307,13 +248,6 @@ For an H100 baseline that matches karpathy's numbers, set
   top of the 5-min training budget. Measured throughput is ~6.8
   experiments/hour vs. ~12/hour on a dedicated local GPU. Over an 8-hour
   overnight run, that's ~50 completed experiments.
-- **A100 ≠ H100.** This recipe defaults to A100 SXM ×1 because that's the
-  high-availability single-GPU spec on VESSL Cloud. `train.py` falls back to
-  `kernels-community/flash-attn3` on non-Hopper GPUs (the upstream code
-  already handles this) so it runs, but **val_bpb numbers are not
-  comparable** to H100 runs — neither karpathy's reference nor other
-  autoresearch forks. Switch the spec env var to a Hopper resource for
-  apples-to-apples comparison.
 - **Torch wheel mismatch.** `pyproject.toml` pins `torch==2.9.1` from the
   cu128 wheel index; the default container ships torch 2.4.1 + CUDA 12.4.
   `uv sync` reinstalls torch in-container, and the cu128 wheels bundle their

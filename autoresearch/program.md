@@ -90,7 +90,7 @@ the container. Everything else is fair game.
 
 **VRAM** is a soft constraint. Some increase is acceptable for meaningful
 val_bpb gains, but it should not blow up dramatically. The default GPU
-target is A100 SXM ×1 (80 GB), so OOM at ~70+ GB peak.
+target is H100 SXM ×1 (80 GB), so OOM at ~70+ GB peak.
 
 **Simplicity criterion**: All else being equal, simpler is better. A small
 improvement that adds ugly complexity is not worth it. Conversely, removing
@@ -126,8 +126,8 @@ Because `submit.sh` streams the job's logs, this summary lands in your local
 grep "^val_bpb:\|^peak_vram_mb:" run.log
 ```
 
-Note: numbers depend on the GPU. The recipe targets A100 SXM ×1; results are
-not directly comparable to H100 runs.
+Note: numbers depend on the GPU. The recipe targets H100 SXM ×1 by default,
+which approximately matches karpathy's reference numbers.
 
 ## Logging results
 

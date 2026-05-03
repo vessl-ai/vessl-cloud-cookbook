@@ -1,34 +1,33 @@
 # autoresearch benchmarks
 
-Measured numbers from real VESSL Cloud runs. Update this file after each
-end-to-end smoke test on a new spec or image.
+Measured numbers from real VESSL Cloud runs.
 
 ## Headline (baseline `train.py`, no agent edits)
 
 | Date | GPU | Cluster | Image | Train time | Job wall time | Peak VRAM | val_bpb | Cost |
 |------|-----|---------|-------|-----------:|--------------:|----------:|--------:|-----:|
-| 2026-05-03 | A100 SXM ×1 | betelgeuse-na | pytorch/pytorch:2.4.1-cuda12.4-cudnn9-devel | 5m1s | 8m46s | 44.0 GB | 1.109645 | ~$0.23 |
+| 2026-05-03 | H100 SXM ×1 | deneb-kr | pytorch/pytorch:2.4.1-cuda12.4-cudnn9-devel | 5m0s | 8m21s | 44.0 GB | 1.010748 | ~$0.33 |
 
 Numbers above are from a single run of the unmodified upstream `train.py`
 submitted via `bash batch-job/submit.sh`. The "Train time" is the 5-minute
 training budget enforced by `prepare.py`; "Job wall time" includes image
 pull, repo clone, `uv sync`, torch.compile, and the final `evaluate_bpb` —
-this is what you actually pay for at $1.55/hr.
+this is what you actually pay for at $2.39/hr.
 
 For reference, karpathy's H100 numbers (from his README): val_bpb ≈ 0.997900,
-total_tokens ≈ 500 M, MFU ≈ 39.8%. The A100 here sees ~200 M tokens at MFU
-≈ 15.7%, so the headline gap (1.11 vs 1.00 val_bpb) is roughly what you'd
-expect from a GPU running ~2.5× fewer tokens in the same 5-minute budget.
+total_tokens ≈ 500 M, MFU ≈ 39.8%. The H100 here sees ~396 M tokens at MFU
+≈ 31.5%, so the headline numbers are within ~1.3% of karpathy's reference —
+likely down to driver / hardware revision differences.
 
-Run details (job `job-no6r43nrqlcr`):
+Run details (job `job-l3i6bc25mrgt`):
 ```
-val_bpb:          1.109645
-training_seconds: 300.7
-total_seconds:    381.1   # train.py-internal; excludes apt/uv overhead
-peak_vram_mb:     45012.5
-mfu_percent:      15.71
-total_tokens_M:   200.8
-num_steps:        383
+val_bpb:          1.010748
+training_seconds: 300.3
+total_seconds:    356.9   # train.py-internal; excludes apt/uv overhead
+peak_vram_mb:     45060.2
+mfu_percent:      31.47
+total_tokens_M:   396.4
+num_steps:        756
 num_params_M:     50.3
 depth:            8
 ```
@@ -42,19 +41,18 @@ depth:            8
 `prep.sh` downloads ~10 ClimbMix shards and trains the BPE tokenizer into
 `AUTORESEARCH_CACHE_VOLUME`. You pay this once per cache volume. CPU spec
 is the right default — the work is single-threaded BPE training, a GPU
-would idle.
+would idle. Object storage is cross-cluster, so the prep job's cluster
+doesn't have to match where you'll run training.
 
 > **Pricing note**: `vesslctl billing show` and `vesslctl job create`
 > output an internal credit rate that does not match public/customer
 > pricing. Refer to the [VESSL Cloud pricing page](https://vessl.ai/pricing)
-> for current rates. The $1.55/hr figure used above is for A100 SXM ×1.
-
-Run details (job `job-dgwb4asbl100`).
+> for current rates. The $2.39/hr figure used above is for H100 SXM ×1.
 
 ## Per-experiment overhead breakdown
 
 Helpful for predicting how many experiments fit in an N-hour overnight run.
-Numbers from the 2026-05-03 smoke run on A100 SXM ×1 (job `job-no6r43nrqlcr`).
+Numbers from the 2026-05-03 baseline run on H100 SXM ×1 (job `job-l3i6bc25mrgt`).
 
 | Phase | Approx. time |
 |-------|-------------:|
@@ -64,11 +62,12 @@ Numbers from the 2026-05-03 smoke run on A100 SXM ×1 (job `job-no6r43nrqlcr`).
 | `prepare.py` skip + `train.py` startup + torch.compile | ~70 s |
 | **Training** (fixed budget) | **5 min** |
 | `evaluate_bpb` | ~40 s |
-| **Total job wall** | **~8m46s** |
+| **Total job wall** | **~8m21s** |
 
-Net throughput: ~6.8 experiments/hour, vs ~12/hour on a dedicated local GPU
+Net throughput: ~7.2 experiments/hour, vs ~12/hour on a dedicated local GPU
 where the startup phases don't repeat. Over an 8-hour overnight run, expect
-~50 completed experiments.
+~50 completed experiments. With Mode B fan-out (K parallel jobs/round), 4×
+that.
 
 ## Repro
 

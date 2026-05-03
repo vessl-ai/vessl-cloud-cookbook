@@ -23,7 +23,7 @@
 set -euo pipefail
 
 CACHE_VOLUME="${AUTORESEARCH_CACHE_VOLUME:?set AUTORESEARCH_CACHE_VOLUME to your cache volume slug (e.g. objvol-...)}"
-RESOURCE_SPEC="${AUTORESEARCH_RESOURCE_SPEC:-resourcespec-a100x1}"
+RESOURCE_SPEC="${AUTORESEARCH_RESOURCE_SPEC:-resourcespec-5qp3iq5lcd90}"
 IMAGE="${AUTORESEARCH_IMAGE:-pytorch/pytorch:2.4.1-cuda12.4-cudnn9-devel}"
 REPO_URL="${AUTORESEARCH_REPO_URL:-https://github.com/vessl-ai/vessl-cloud-cookbook.git}"
 

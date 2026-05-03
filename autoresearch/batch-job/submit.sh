@@ -20,7 +20,7 @@
 #                               (e.g. objvol-abc123).
 #
 # Optional env vars:
-#   AUTORESEARCH_RESOURCE_SPEC  default: resourcespec-a100x1
+#   AUTORESEARCH_RESOURCE_SPEC  default: resourcespec-5qp3iq5lcd90 (H100 SXM x1, deneb-kr)
 #   AUTORESEARCH_IMAGE          default: pytorch/pytorch:2.4.1-cuda12.4-cudnn9-devel
 #   AUTORESEARCH_REPO_URL       default: https://github.com/vessl-ai/vessl-cloud-cookbook.git
 #   AUTORESEARCH_TIMEOUT_S      default: 1800 (kill the wait after this many seconds
@@ -33,7 +33,7 @@
 set -euo pipefail
 
 CACHE_VOLUME="${AUTORESEARCH_CACHE_VOLUME:?set AUTORESEARCH_CACHE_VOLUME to your cache volume slug (e.g. objvol-...)}"
-RESOURCE_SPEC="${AUTORESEARCH_RESOURCE_SPEC:-resourcespec-a100x1}"
+RESOURCE_SPEC="${AUTORESEARCH_RESOURCE_SPEC:-resourcespec-5qp3iq5lcd90}"
 IMAGE="${AUTORESEARCH_IMAGE:-pytorch/pytorch:2.4.1-cuda12.4-cudnn9-devel}"
 REPO_URL="${AUTORESEARCH_REPO_URL:-https://github.com/vessl-ai/vessl-cloud-cookbook.git}"
 TIMEOUT_S="${AUTORESEARCH_TIMEOUT_S:-1800}"
