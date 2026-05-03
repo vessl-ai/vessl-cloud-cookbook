@@ -8,7 +8,7 @@ GPU spec; you edit code locally, the agent loop submits jobs, you wake up to
 
 | GPU | Cost / experiment | Wall time per experiment | Peak VRAM | Baseline val_bpb |
 |-----|------------------:|-------------------------:|----------:|-----------------:|
-| A100 SXM 80 GB × 1 (betelgeuse-na, $0.10/hr) | ~$0.015 | ~8m46s (5 min train + ~3:46 startup) | 44.0 GB | 1.109645 |
+| A100 SXM 80 GB × 1 (betelgeuse-na, $1.55/hr) | ~$0.23 | ~8m46s (5 min train + ~3:46 startup) | 44.0 GB | 1.109645 |
 
 Numbers measured 2026-05-03 on VESSL Cloud — full breakdown in [benchmarks.md](./benchmarks.md).
 
