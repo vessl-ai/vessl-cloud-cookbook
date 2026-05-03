@@ -107,12 +107,37 @@ is a `bash batch-job/submit.sh` call. You wake up to a populated
 `results.tsv` and an `autoresearch/<tag>` branch on `vessl-cloud-cookbook`
 with one commit per kept experiment.
 
-## Running multiple agents in parallel
+## Running in parallel
 
 The thing the cloud version can do that the original autoresearch can't:
-*N independent research threads at once*. Each agent gets its own tag and
-its own GPU; they all write to the same cache volume (which only contains
-read-only data after `prep.sh`) and otherwise don't touch each other.
+*K experiments running at once*. There are two ways to use that, and they
+compose:
+
+### Option 1 — One agent, batch mode (in-session fan-out)
+
+Within a single agent session, the agent submits K candidate experiments
+asynchronously, waits for them all to finish, then picks the winner. This
+is "Mode B" in [program.md](./program.md). Best for sweeps and breadth-first
+exploration ("try LR ∈ {0.02, 0.04, 0.06, 0.08} apples-to-apples").
+
+The two helper scripts that enable it:
+
+- `batch-job/submit-async.sh` — submit one job and return the slug
+  immediately. Doesn't wait.
+- `batch-job/wait-jobs.sh slug1 slug2 ...` — poll N slugs until all
+  terminal, then print the train.py summary block (`val_bpb`, `peak_vram_mb`,
+  …) for each. Use this once K async submissions have happened.
+
+The classic blocking `submit.sh` is still the right tool for "Mode A"
+(linear keep-or-revert). The agent picks which mode at run start and
+sticks with it for the run.
+
+### Option 2 — Multiple agents, multiple terminals (multi-thread research)
+
+Spawn N independent agent sessions on N different tags; each one runs its
+own loop (Mode A or Mode B), they don't talk to each other. Best when the
+research directions themselves are different (one agent on optimizer,
+another on architecture, another on data).
 
 ```bash
 # Terminal 1 — agent A (e.g. exploring optimizer hyperparameters)
@@ -127,13 +152,20 @@ cd autoresearch && claude   # then: "have a look at program.md, tag: data-may3"
 
 Each agent works on `autoresearch/<its-tag>` and submits jobs named
 `autoresearch-<its-tag>-<commit>`, so the streams don't collide. With
-N agents you get ~N × 6.8 ≈ 7N experiments/hour and N × ~$0.23/experiment
-× 7N/hour = ~$1.6/hr per agent in train-cost. Cap your VESSL queue
-concurrency from the cloud console if you don't want all N to run at once.
+N agents in Mode A you get ~N × 6.8 ≈ 7N experiments/hour. If each agent
+is *also* in Mode B with K=4 candidates per round, you get ~N × K
+experiments per ~10-minute round.
+
+### How they compose
+
+The cache volume (read-only after `prep.sh`) is shared by everything; the
+job names key off branch + commit so collisions between modes/agents don't
+happen. Cap your VESSL concurrency from the cloud console if you don't
+want all N×K running at once.
 
 The "research org" framing in the [autoresearch teaser](https://github.com/karpathy/autoresearch)
-is much more interesting once you can actually run multiple agents at the
-same time — different research directions, different priors, late-night
+is much more interesting once you can actually run experiments in
+parallel — different research directions, different priors, late-night
 synthesis when they all check in.
 
 ## How submit.sh works

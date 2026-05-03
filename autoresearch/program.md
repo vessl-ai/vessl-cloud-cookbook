@@ -160,33 +160,89 @@ d4e5f6g	0.000000	0.0	crash	double model width (OOM)
 ## The experiment loop
 
 The experiment runs on a dedicated branch `autoresearch/<tag>` of
-`vessl-cloud-cookbook`.
+`vessl-cloud-cookbook`. There are two equally valid loop shapes — pick one
+upfront and tell the user which you're using; you can switch between runs
+but don't switch mid-run, since the branch hygiene is different.
+
+### Mode A: Linear (karpathy-style accept/reject)
+
+Best for: depth-first iteration where each idea builds on the last,
+debugging a single direction, or the very first run where you don't have
+enough signal to fan out.
 
 LOOP FOREVER:
 
 1. Look at the git state: the current branch/commit you're on.
 2. Tune `train.py` with an experimental idea by directly hacking the code.
 3. `git commit` (locally — `submit.sh` will push for you).
-4. Run the experiment: `bash batch-job/submit.sh > run.log 2>&1`. This blocks
-   until the job is done. Do NOT use `tee` or let the streamed step lines
-   flood your context.
+4. Run the experiment: `bash batch-job/submit.sh > run.log 2>&1`. This
+   blocks until the job is done. Do NOT use `tee` or let the streamed step
+   lines flood your context.
 5. Read out the results: `grep "^val_bpb:\|^peak_vram_mb:" run.log`.
-6. If the grep output is empty, the run crashed. Run `tail -n 80 run.log` to
-   read the trace and attempt a fix. The trace may be a Python error from
-   `train.py` or a VESSL error (image pull, OOM kill, scheduling failure) —
-   they look different. If you can't get things to work after a few attempts,
-   give up.
+6. If the grep output is empty, the run crashed. Run `tail -n 80 run.log`
+   to read the trace and attempt a fix. The trace may be a Python error
+   from `train.py` or a VESSL error (image pull, OOM kill, scheduling
+   failure) — they look different. If you can't get things to work after a
+   few attempts, give up.
 7. Record the results in `results.tsv` (do not commit this file).
-8. If `val_bpb` improved (lower), you "advance" the branch — keep the commit.
-9. If `val_bpb` is equal or worse, `git reset --hard HEAD~1` to discard the
-   change. (`submit.sh` uses force-with-lease on push, so this is safe — the
-   next push will overwrite the discarded commit on origin.)
+8. If `val_bpb` improved (lower), "advance" the branch — keep the commit.
+9. If `val_bpb` is equal or worse, `git reset --hard HEAD~1` to discard
+   the change. (`submit.sh` uses force-with-lease on push, so this is safe
+   — the next push will overwrite the discarded commit on origin.)
 
-The idea is that you are a completely autonomous researcher trying things
-out. If they work, keep. If they don't, discard. And you're advancing the
-branch so that you can iterate. If you feel like you're getting stuck in
-some way, you can rewind further but you should probably do this very, very
-sparingly (if ever).
+### Mode B: Batch (parallel fan-out, pick best of K)
+
+Best for: breadth-first sweeps (try LR ∈ {0.02, 0.04, 0.06, 0.08} at once),
+when you have multiple plausible-but-untried ideas and want to compare
+them apples-to-apples, or just to use the cloud GPU pool while you can.
+Round duration is ~10 min (one job-wall-time) instead of ~10 min × K, so
+the throughput multiplier vs. Mode A is roughly K.
+
+Each round:
+
+1. Look at the git state. Your "main" branch is still `autoresearch/<tag>`
+   — that's the current best. Note its HEAD as `BASE`.
+2. Generate K candidate experiments (typically 3-5; more is fine but
+   read `vesslctl billing` first). Each candidate is one tweak to
+   `train.py`. For each candidate `i` in 1..K:
+   - `git checkout -b autoresearch/<tag>-r<round>-<i> BASE`
+   - Edit `train.py` for candidate `i`.
+   - `git commit -m "round <round> cand <i>: <one-line description>"`
+   - `slug_<i>=$(bash batch-job/submit-async.sh)` — captures the job slug.
+3. Once all K are submitted, wait for them together:
+   `bash batch-job/wait-jobs.sh "$slug_1" "$slug_2" ... "$slug_K" > round.log 2>&1`
+   This blocks until all K jobs reach a terminal state, then prints one
+   summary block per slug.
+4. Parse `round.log`: extract `val_bpb` per slug, map back to the
+   candidate branch (the slug's job name has the form
+   `autoresearch-<tag>-r<round>-<i>-<commit>`).
+5. Pick the winner: lowest `val_bpb` that beats `BASE`'s previously
+   recorded `val_bpb`. Crashes count as a loss.
+6. Advance the main branch:
+   - `git checkout autoresearch/<tag>`
+   - `git reset --hard autoresearch/<tag>-r<round>-<winner>`
+   - (or, if no candidate beat `BASE`, leave `autoresearch/<tag>` alone
+     and try a different direction next round.)
+7. Record all K candidates in `results.tsv` — one row per candidate, with
+   `keep` for the winner and `discard` for the rest, plus `crash` for any
+   that didn't finish.
+8. Optional cleanup: `git branch -D autoresearch/<tag>-r<round>-<i>` for
+   the losers, and `git push origin --delete autoresearch/<tag>-r<round>-<i>`
+   to also remove them from origin. The winner's branch can stay around
+   for git history.
+9. Increment `round` and go to step 1.
+
+In Mode B, the "branch reset" semantics are at the round level instead of
+the per-experiment level. The main branch only ever advances when a
+candidate beats it. Losers are discarded as branches, not as commits on a
+shared trunk, so there's no `force-with-lease` needed for cleanup.
+
+### Mode flexibility
+
+The two modes can coexist in one tag's history if needed (e.g. start with
+Mode B for a coarse sweep, switch to Mode A for fine-tuning the best
+candidate), but try not to weave them within a single round — it makes
+results.tsv hard to read.
 
 **Timeout**: `submit.sh` enforces `AUTORESEARCH_TIMEOUT_S` (default 1200s).
 If the job hasn't finished by then, the script kills the log stream and the
