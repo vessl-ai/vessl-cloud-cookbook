@@ -1,0 +1,17 @@
+commit	val_bpb	memory_gb	status	description
+bc6a4a8	1.010748	44.0	keep	baseline (defaults, H100)
+e19418c	1.011738	44.0	discard	c1: EMBEDDING_LR 0.6 -> 0.4
+486469a	1.011043	44.0	discard	c2: WEIGHT_DECAY 0.2 -> 0.1
+afb4297	1.012342	44.0	discard	c3: WINDOW_PATTERN SSSL -> L (full attn)
+d4836b1	1.011932	44.0	discard	c4: WARMDOWN_RATIO 0.5 -> 0.3
+fd75ecf	1.011515	44.0	discard	c5: ADAM_BETAS (0.8,0.95) -> (0.9,0.95)
+22a89c0	1.008112	44.0	keep	c6: MATRIX_LR 0.04 -> 0.05 (round 2 winner)
+6e9fac7	1.010590	44.0	discard	c7: WARMUP_RATIO 0.0 -> 0.05
+0b1e672	1.060995	26.5	discard	c8: DEPTH 8 -> 6 (smaller model)
+9510460	1.010452	44.0	discard	c9: ASPECT_RATIO 64 -> 56
+21121ef	0.998559	43.8	keep	c10: TOTAL_BATCH_SIZE 2^19 -> 2^18 (round 3 winner)
+531b136	1.048885	26.4	discard	c11: depth=6 + batch 2^18 (combo)
+53cd408	1.000554	43.8	discard	c12: c10 + MATRIX_LR 0.04 -> 0.05 (combine winners)
+a8ee800	1.001699	43.8	discard	c13: c10 + WARMDOWN_RATIO 0.5 -> 0.3
+1777e88	0.998833	43.8	discard	c14: c10 + EMBEDDING_LR 0.6 -> 0.5
+8fde57f	0.985552	66.2	keep	c15: c10 + DEPTH 8 -> 10 (round 4 winner)
