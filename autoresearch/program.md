@@ -23,9 +23,13 @@ To set up a new experiment, work with the user to:
    `bash batch-job/prep.sh` once before continuing — it submits a one-time
    job that downloads the data shards and trains the BPE tokenizer into the
    volume. This takes ~5-15 minutes.
-2. **Agree on a run tag**: propose a tag based on today's date (e.g. `mar5`).
-   The branch `autoresearch/<tag>` must not already exist on origin — this is
-   a fresh run. Check with `git ls-remote --heads origin autoresearch/<tag>`.
+2. **Agree on a run tag**: propose a tag based on today's date and an
+   optional theme that hints at what this run is exploring
+   (e.g. `mar5-opt`, `mar5-arch`). The branch `autoresearch/<tag>` must not
+   already exist on origin — this is a fresh run. Check with
+   `git ls-remote --heads origin autoresearch/<tag>`. If the user is running
+   multiple agents in parallel, each agent must have a unique tag — the
+   tag is what keeps the branches and job names from colliding.
 3. **Create the branch**: from `main` of `vessl-cloud-cookbook`,
    `git checkout -b autoresearch/<tag>`.
 4. **Read the in-scope files**:

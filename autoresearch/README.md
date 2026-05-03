@@ -2,9 +2,15 @@
 
 Run [karpathy/autoresearch](https://github.com/karpathy/autoresearch) — the
 "AI agent does its own LLM research while you sleep" experiment — without
-owning a GPU. Every training run is a `vesslctl job create` against a single
-GPU spec; you edit code locally, the agent loop submits jobs, you wake up to
-~50 experiments and a (hopefully) better model.
+owning a GPU, **and with parallelism**. Every training run is a
+`vesslctl job create` against a single-GPU spec, so you can run N agents
+concurrently on N independent research threads (each on its own
+`autoresearch/<tag>` branch) and get N× the experiments per night. With one
+local GPU karpathy's loop is strictly sequential; on VESSL it isn't.
+
+You edit code locally, the agent loop submits jobs, you wake up to ~50
+experiments per agent (or 100, 200, … if you fan out) and a hopefully
+better model.
 
 | GPU | Cost / experiment | Wall time per experiment | Peak VRAM | Baseline val_bpb |
 |-----|------------------:|-------------------------:|----------:|-----------------:|
@@ -100,6 +106,35 @@ verifies the cache volume), then enters the experiment loop. Every iteration
 is a `bash batch-job/submit.sh` call. You wake up to a populated
 `results.tsv` and an `autoresearch/<tag>` branch on `vessl-cloud-cookbook`
 with one commit per kept experiment.
+
+## Running multiple agents in parallel
+
+The thing the cloud version can do that the original autoresearch can't:
+*N independent research threads at once*. Each agent gets its own tag and
+its own GPU; they all write to the same cache volume (which only contains
+read-only data after `prep.sh`) and otherwise don't touch each other.
+
+```bash
+# Terminal 1 — agent A (e.g. exploring optimizer hyperparameters)
+cd autoresearch && claude   # then: "have a look at program.md, tag: opt-may3"
+
+# Terminal 2 — agent B (e.g. exploring architecture)
+cd autoresearch && claude   # then: "have a look at program.md, tag: arch-may3"
+
+# Terminal 3 — agent C (e.g. exploring data mixing)
+cd autoresearch && claude   # then: "have a look at program.md, tag: data-may3"
+```
+
+Each agent works on `autoresearch/<its-tag>` and submits jobs named
+`autoresearch-<its-tag>-<commit>`, so the streams don't collide. With
+N agents you get ~N × 6.8 ≈ 7N experiments/hour and N × ~$0.23/experiment
+× 7N/hour = ~$1.6/hr per agent in train-cost. Cap your VESSL queue
+concurrency from the cloud console if you don't want all N to run at once.
+
+The "research org" framing in the [autoresearch teaser](https://github.com/karpathy/autoresearch)
+is much more interesting once you can actually run multiple agents at the
+same time — different research directions, different priors, late-night
+synthesis when they all check in.
 
 ## How submit.sh works
 
