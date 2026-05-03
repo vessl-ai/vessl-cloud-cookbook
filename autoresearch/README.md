@@ -36,13 +36,15 @@ same way you would with a local-GPU run.
 
 - A VESSL Cloud account with credits.
 - `vesslctl` installed and authenticated (`vesslctl auth status`).
-- A VESSL org and team selected on `vesslctl`. Either set them as your
-  defaults once:
+- A VESSL org and team active on `vesslctl`. The interactive `vesslctl auth
+  login` flow prompts you to pick both, and `vesslctl auth status` shows the
+  resolved context. To change them later without re-logging-in:
   ```bash
-  vesslctl org switch <your-org>
-  vesslctl team switch <your-team>
+  vesslctl config set default_org  <your-org>
+  vesslctl config set default_team <your-team>
+  vesslctl auth status   # confirm
   ```
-  or pass them on every command via `--org` / `--team` (or the
+  Or override per-command with `--org` / `--team` flags (or the
   `VESSLCTL_ORG` / `VESSLCTL_TEAM` env vars). All `vesslctl` invocations in
   this recipe — `volume create`, `prep.sh`, `submit.sh` — pick up whichever
   org and team are currently active.
