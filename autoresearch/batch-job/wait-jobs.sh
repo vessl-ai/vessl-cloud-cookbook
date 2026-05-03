@@ -36,19 +36,25 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 . "$SCRIPT_DIR/_lib.sh"
 
 slugs=("$@")
-declare -A last_state=()
+n_slugs=${#slugs[@]}
+# Parallel indexed arrays (bash 3.2 compat — no `declare -A` associative arrays).
+last_states=()
+for i in $(seq 0 $((n_slugs - 1))); do
+  last_states[i]=""
+done
 deadline=$(( $(date +%s) + TIMEOUT_S ))
 
-echo "wait-jobs.sh: tracking ${#slugs[@]} job(s): ${slugs[*]}" >&2
+echo "wait-jobs.sh: tracking ${n_slugs} job(s): ${slugs[*]}" >&2
 
 while true; do
   pending=0
-  for slug in "${slugs[@]}"; do
+  for i in $(seq 0 $((n_slugs - 1))); do
+    slug="${slugs[i]}"
     state="$(job_state "$slug")"
     [ -z "$state" ] && state="?"
-    if [ "${last_state[$slug]:-}" != "$state" ]; then
+    if [ "${last_states[i]}" != "$state" ]; then
       echo "[$(date -u +%H:%M:%S)] $slug: $state" >&2
-      last_state[$slug]="$state"
+      last_states[i]="$state"
     fi
     case "$state" in
       succeeded|failed|terminated|cancelled) ;;

@@ -18,7 +18,7 @@ find_job_slug() {
 # Get the current state of a job. Empty string on lookup failure.
 job_state() {
   vesslctl job show "$1" -o json 2>/dev/null \
-    | python3 -c 'import json,sys; print(json.load(sys.stdin).get("status",""))' 2>/dev/null \
+    | python3 -c 'import json,sys; print(json.load(sys.stdin).get("workloadState",""))' 2>/dev/null \
     || true
 }
 
