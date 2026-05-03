@@ -9,8 +9,9 @@
 #
 # Prereqs:
 #   - vesslctl installed and authenticated. The active org and team
-#     (vesslctl org switch / team switch, or VESSLCTL_ORG / VESSLCTL_TEAM)
-#     determine where the job is billed.
+#     (`vesslctl auth login`, `vesslctl config set default_org/default_team`,
+#     or `--org` / `--team` / VESSLCTL_ORG / VESSLCTL_TEAM) determine where
+#     the job is billed. Run `vesslctl auth status` to see what's resolved.
 #   - Object volume populated by batch-job/prep.sh (data + tokenizer cached).
 #   - Current branch matches autoresearch/* and the working tree is clean.
 #
