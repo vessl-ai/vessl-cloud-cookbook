@@ -58,7 +58,9 @@ fi
 
 COMMIT="$(git rev-parse --short HEAD)"
 TAG="${BRANCH#autoresearch/}"
-JOB_NAME="autoresearch-${TAG}-${COMMIT}"
+# vesslctl tag values must be lowercase letters, numbers, and hyphens only.
+TAG_SAFE="$(printf '%s' "$TAG" | tr '[:upper:]' '[:lower:]' | tr -c 'a-z0-9-' '-' | sed 's/^-*//;s/-*$//')"
+JOB_NAME="autoresearch-${TAG_SAFE}-${COMMIT}"
 
 echo "submit.sh: pushing $BRANCH ($COMMIT) to origin"
 git push --force-with-lease -u origin "$BRANCH" >&2
@@ -89,7 +91,7 @@ vesslctl job create \
   -i "$IMAGE" \
   --object-volume "${CACHE_VOLUME}:/root/.cache/autoresearch" \
   --tag autoresearch \
-  --tag "tag:${TAG}" \
+  --tag "ar-${TAG_SAFE}" \
   --cmd "$JOB_CMD" >&2
 
 SLUG="$(find_job_slug "$JOB_NAME")" || { echo "submit.sh: failed to locate job slug for $JOB_NAME" >&2; exit 3; }

@@ -6,11 +6,11 @@ owning a GPU. Every training run is a `vesslctl job create` against a single
 GPU spec; you edit code locally, the agent loop submits jobs, you wake up to
 ~50 experiments and a (hopefully) better model.
 
-| GPU | Cost | Wall time per experiment | Peak VRAM | Final val_bpb |
-|-----|-----:|-------------------------:|----------:|--------------:|
-| A100 SXM 80 GB × 1 | TODO | ~10 min (5 min train + ~5 min job overhead) | TODO | TODO |
+| GPU | Cost / experiment | Wall time per experiment | Peak VRAM | Baseline val_bpb |
+|-----|------------------:|-------------------------:|----------:|-----------------:|
+| A100 SXM 80 GB × 1 (betelgeuse-na, $0.10/hr) | ~$0.015 | ~8m46s (5 min train + ~3:46 startup) | 44.0 GB | 1.109645 |
 
-Numbers measured TODO on VESSL Cloud — full breakdown in [benchmarks.md](./benchmarks.md).
+Numbers measured 2026-05-03 on VESSL Cloud — full breakdown in [benchmarks.md](./benchmarks.md).
 
 ## What this recipe is
 
@@ -139,10 +139,11 @@ For an H100 baseline that matches karpathy's numbers, set
 
 ## Known limitations
 
-- **Per-experiment overhead is real.** Each VESSL job pays ~3-5 min of
-  startup (image pull, repo clone, `uv sync`, torch.compile) on top of the
-  5-min training budget. Expect ~6 experiments/hour vs. ~12/hour on a
-  dedicated local GPU.
+- **Per-experiment overhead is real.** Each VESSL job pays ~3-4 min of
+  startup (image pull, `uv sync` / torch reinstall, `train.py` compile) on
+  top of the 5-min training budget. Measured throughput is ~6.8
+  experiments/hour vs. ~12/hour on a dedicated local GPU. Over an 8-hour
+  overnight run, that's ~50 completed experiments.
 - **A100 ≠ H100.** This recipe defaults to A100 SXM ×1 because that's the
   high-availability single-GPU spec on VESSL Cloud. `train.py` falls back to
   `kernels-community/flash-attn3` on non-Hopper GPUs (the upstream code
