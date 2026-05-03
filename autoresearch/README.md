@@ -36,8 +36,16 @@ same way you would with a local-GPU run.
 
 - A VESSL Cloud account with credits.
 - `vesslctl` installed and authenticated (`vesslctl auth status`).
-- Default org/team set on `vesslctl` (e.g. `vesslctl org switch Lidia &&
-  vesslctl team switch Floyd`).
+- A VESSL org and team selected on `vesslctl`. Either set them as your
+  defaults once:
+  ```bash
+  vesslctl org switch <your-org>
+  vesslctl team switch <your-team>
+  ```
+  or pass them on every command via `--org` / `--team` (or the
+  `VESSLCTL_ORG` / `VESSLCTL_TEAM` env vars). All `vesslctl` invocations in
+  this recipe — `volume create`, `prep.sh`, `submit.sh` — pick up whichever
+  org and team are currently active.
 - An object volume to hold the data cache (~10 GB). Create one once:
   ```bash
   vesslctl volume create \

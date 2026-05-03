@@ -8,7 +8,9 @@
 # log to stdout. Exit code reflects the job's final state.
 #
 # Prereqs:
-#   - vesslctl installed and authenticated (org=Lidia, team=Floyd or your own).
+#   - vesslctl installed and authenticated. The active org and team
+#     (vesslctl org switch / team switch, or VESSLCTL_ORG / VESSLCTL_TEAM)
+#     determine where the job is billed.
 #   - Object volume populated by batch-job/prep.sh (data + tokenizer cached).
 #   - Current branch matches autoresearch/* and the working tree is clean.
 #
