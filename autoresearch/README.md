@@ -173,6 +173,36 @@ is much more interesting once you can actually run experiments in
 parallel — different research directions, different priors, late-night
 synthesis when they all check in.
 
+## Example research cycle
+
+A real 16-experiment, 4-round Mode B cycle on this setup is bundled as a
+reference: see [`results.example.tsv`](./results.example.tsv) and
+[`progress.png`](./progress.png).
+
+![progress](./progress.png)
+
+The story it tells:
+
+- **Rounds 1–2** (experiments 1–7): single-knob tweaks against the
+  H100-tuned defaults — `EMBEDDING_LR`, `WEIGHT_DECAY`, `WINDOW_PATTERN`,
+  `WARMDOWN_RATIO`, `ADAM_BETAS`, `MATRIX_LR`, `WARMUP_RATIO`. None beat
+  baseline. Karpathy's defaults are well-tuned.
+- **Round 3** (experiments 8–11): bigger swings — smaller depth, smaller
+  batch. **Breakthrough**: `TOTAL_BATCH_SIZE 2^19 → 2^18` doubles the
+  number of optimizer steps that fit in 5 minutes on A100 (since the
+  default was tuned for H100's higher throughput). val_bpb drops from
+  1.109 → **1.050** (5.3% improvement).
+- **Round 4** (experiments 12–15): refinements on top of the round-3
+  winner. None beat it. The recipe converged.
+
+Total spend for the cycle: **~$3.68** (16 experiments × ~$0.23 each at
+$1.55/hr A100). Wall time: **~40 minutes** (4 rounds × ~10 min each, with
+4 jobs running in parallel per round). The same work would take ~2 hours
+of sequential compute on a single H100 in the original autoresearch.
+
+To regenerate `progress.png` from your own `results.tsv`, run
+`analysis.ipynb` (or `jupyter nbconvert --execute analysis.ipynb`).
+
 ## How submit.sh works
 
 ```

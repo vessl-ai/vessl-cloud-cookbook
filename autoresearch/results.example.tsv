@@ -1,0 +1,17 @@
+commit	val_bpb	memory_gb	status	description
+075f46c	1.109421	44.0	keep	baseline (defaults)
+1fe915c	1.113236	44.0	discard	c1: EMBEDDING_LR 0.6 -> 0.4
+09a194b	1.110045	44.0	discard	c2: WEIGHT_DECAY 0.2 -> 0.1
+85a393d	1.112881	44.0	discard	c3: WINDOW_PATTERN SSSL -> L (full attn)
+6a26c3b	1.112690	44.0	discard	c4: WARMDOWN_RATIO 0.5 -> 0.3
+2904cf9	1.114279	44.0	discard	c5: ADAM_BETAS (0.8,0.95) -> (0.9,0.95)
+3335b26	1.111127	44.0	discard	c6: MATRIX_LR 0.04 -> 0.05
+fe34706	1.119020	44.0	discard	c7: WARMUP_RATIO 0.0 -> 0.05
+d632301	1.069855	26.5	discard	c8: DEPTH 8 -> 6 (smaller model)
+9fd7d3f	1.110628	44.0	discard	c9: ASPECT_RATIO 64 -> 56
+2f056cb	1.050463	43.8	keep	c10: TOTAL_BATCH_SIZE 2^19 -> 2^18 (round winner)
+8fcb555	1.054913	26.4	discard	c11: depth=6 + batch 2^18 (combo)
+1831784	1.051943	43.8	discard	c12: c10 + WARMDOWN_RATIO 0.5 -> 0.3
+7f1c3a1	1.051077	43.8	discard	c13: c10 + EMBEDDING_LR 0.6 -> 0.5
+e3c89d1	1.052430	43.8	discard	c14: c10 + WEIGHT_DECAY 0.2 -> 0.1
+a21f983	1.070278	66.2	discard	c15: c10 + DEPTH 8 -> 10 (more capacity)
