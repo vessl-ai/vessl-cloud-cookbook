@@ -215,7 +215,9 @@ agent edits train.py → git commit
                      ↓
    container: clone cookbook @ branch, uv sync, uv run train.py
                      ↓
-   vesslctl job logs -f → streamed to stdout → captured to local run.log
+   poll vesslctl job show until terminal state
+                     ↓
+   vesslctl job logs --limit 1000 → captured to local run.log
                      ↓
    exit 0 if job succeeded, non-zero otherwise
 ```
@@ -245,9 +247,10 @@ directly comparable to H100 / karpathy's reference.
 
 - **Per-experiment overhead is real.** Each VESSL job pays ~3-4 min of
   startup (image pull, `uv sync` / torch reinstall, `train.py` compile) on
-  top of the 5-min training budget. Measured throughput is ~6.8
+  top of the 5-min training budget. Measured throughput is ~7
   experiments/hour vs. ~12/hour on a dedicated local GPU. Over an 8-hour
-  overnight run, that's ~50 completed experiments.
+  overnight run, that's ~50 completed experiments per agent — ~200 with
+  Mode B fan-out at K=4.
 - **Torch wheel mismatch.** `pyproject.toml` pins `torch==2.9.1` from the
   cu128 wheel index; the default container ships torch 2.4.1 + CUDA 12.4.
   `uv sync` reinstalls torch in-container, and the cu128 wheels bundle their

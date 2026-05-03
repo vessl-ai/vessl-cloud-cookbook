@@ -64,7 +64,8 @@ The script will:
 - Push your `autoresearch/<tag>` branch to origin (force-with-lease).
 - Submit a `vesslctl job create` that clones the cookbook at that branch and
   runs `train.py` with the cache volume mounted at `~/.cache/autoresearch`.
-- Stream the job's logs to stdout, which `> run.log` captures locally.
+- Poll `vesslctl job show` until the job reaches a terminal state, then
+  dump the job's full log to stdout (which `> run.log` captures locally).
 - Exit 0 if the job's final state is `succeeded`, non-zero otherwise.
 
 **What you CAN do:**
@@ -119,8 +120,8 @@ num_params_M:     50.3
 depth:            8
 ```
 
-Because `submit.sh` streams the job's logs, this summary lands in your local
-`run.log`. Extract the key metrics with:
+`submit.sh` dumps the job's full log to stdout once the job terminates, so
+this summary lands in your local `run.log`. Extract the key metrics with:
 
 ```
 grep "^val_bpb:\|^peak_vram_mb:" run.log
@@ -244,10 +245,11 @@ Mode B for a coarse sweep, switch to Mode A for fine-tuning the best
 candidate), but try not to weave them within a single round — it makes
 results.tsv hard to read.
 
-**Timeout**: `submit.sh` enforces `AUTORESEARCH_TIMEOUT_S` (default 1200s).
-If the job hasn't finished by then, the script kills the log stream and the
-job continues running in the background — you treat it as a failure (discard
-and revert), and optionally `vesslctl job terminate <slug>` to stop billing.
+**Timeout**: `submit.sh` enforces `AUTORESEARCH_TIMEOUT_S` (default 1800s).
+If the job hasn't finished by then, the script kills its polling loop; the
+job continues running in the background — you treat it as a failure
+(discard and revert), and optionally `vesslctl job terminate <slug>` to
+stop billing.
 
 **Crashes**: If a run crashes (OOM, or a bug, or etc.), use your judgment:
 if it's something dumb and easy to fix (e.g. a typo, a missing import), fix
