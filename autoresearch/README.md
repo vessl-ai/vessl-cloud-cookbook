@@ -38,6 +38,11 @@ This recipe is a thin VESSL Cloud adaptation:
 You analyze results locally with `analysis.ipynb` and `results.tsv`, the
 same way you would with a local-GPU run.
 
+A side-by-side diagram of the two architectures (original vs VESSL Cloud,
+Mode B fan-out included) is in [`architecture.excalidraw`](./architecture.excalidraw)
+— open it at [excalidraw.com](https://excalidraw.com) (Menu → Open) for
+the visual.
+
 ## Prerequisites
 
 - A VESSL Cloud account with credits.
