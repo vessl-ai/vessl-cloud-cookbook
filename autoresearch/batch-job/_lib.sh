@@ -43,8 +43,11 @@ wait_for_job() {
   done
 }
 
-# Dump the full job log (a high --limit captures everything for our short
-# 5-min training runs).
+# Dump the full job log. The vesslctl API caps --limit at 1000, which is
+# enough for our jobs: train.py uses \r-overwritten progress lines that
+# collapse to a single logical line in the captured log, so a 5-min run
+# produces ~100-150 lines (apt-get + uv sync + a few startup logs + the
+# val_bpb summary block).
 dump_job_logs() {
-  vesslctl job logs --limit 100000 "$1" 2>&1 || true
+  vesslctl job logs --limit 1000 "$1" 2>&1 || true
 }
