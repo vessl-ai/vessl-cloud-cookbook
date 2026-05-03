@@ -4,7 +4,8 @@
 # Called by the autoresearch agent loop in place of `uv run train.py`.
 # Pushes the current autoresearch/<tag> branch to origin, submits a vesslctl
 # job that clones the cookbook at that branch and runs train.py on a single
-# GPU, then streams logs to stdout until the job terminates.
+# GPU, polls until the job reaches a terminal state, then dumps the full job
+# log to stdout. Exit code reflects the job's final state.
 #
 # Prereqs:
 #   - vesslctl installed and authenticated (org=Lidia, team=Floyd or your own).
@@ -19,7 +20,8 @@
 #   AUTORESEARCH_RESOURCE_SPEC  default: resourcespec-a100x1
 #   AUTORESEARCH_IMAGE          default: pytorch/pytorch:2.4.1-cuda12.4-cudnn9-devel
 #   AUTORESEARCH_REPO_URL       default: https://github.com/vessl-ai/vessl-cloud-cookbook.git
-#   AUTORESEARCH_TIMEOUT_S      default: 1200 (kill the wait after this many seconds)
+#   AUTORESEARCH_TIMEOUT_S      default: 1800 (kill the wait after this many seconds
+#                               of wall clock; the job continues running on VESSL)
 #
 # Usage (from the agent loop):
 #   bash batch-job/submit.sh > run.log 2>&1
@@ -31,7 +33,11 @@ CACHE_VOLUME="${AUTORESEARCH_CACHE_VOLUME:?set AUTORESEARCH_CACHE_VOLUME to your
 RESOURCE_SPEC="${AUTORESEARCH_RESOURCE_SPEC:-resourcespec-a100x1}"
 IMAGE="${AUTORESEARCH_IMAGE:-pytorch/pytorch:2.4.1-cuda12.4-cudnn9-devel}"
 REPO_URL="${AUTORESEARCH_REPO_URL:-https://github.com/vessl-ai/vessl-cloud-cookbook.git}"
-TIMEOUT_S="${AUTORESEARCH_TIMEOUT_S:-1200}"
+TIMEOUT_S="${AUTORESEARCH_TIMEOUT_S:-1800}"
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+# shellcheck source=./_lib.sh
+. "$SCRIPT_DIR/_lib.sh"
 
 # Resolve repo root so this script works whether called from the recipe dir or batch-job/.
 REPO_ROOT="$(git rev-parse --show-toplevel)"
@@ -83,34 +89,25 @@ vesslctl job create \
   --tag "tag:${TAG}" \
   --cmd "$JOB_CMD" >&2
 
-# vesslctl job create doesn't return the slug — look it up by name.
-SLUG=""
-for _ in $(seq 1 10); do
-  SLUG="$(vesslctl job list -o json 2>/dev/null \
-    | python3 -c 'import json,sys; d=json.load(sys.stdin); n=sys.argv[1]; print(next((j["slug"] for j in d if j["name"]==n), ""))' "$JOB_NAME" || true)"
-  [ -n "$SLUG" ] && break
-  sleep 2
-done
-if [ -z "$SLUG" ]; then
-  echo "submit.sh: failed to locate job slug for $JOB_NAME" >&2
-  exit 3
-fi
+SLUG="$(find_job_slug "$JOB_NAME")" || { echo "submit.sh: failed to locate job slug for $JOB_NAME" >&2; exit 3; }
 echo "submit.sh: job slug $SLUG"
 
-# Follow logs with a hard timeout so a stuck job doesn't block the agent loop.
-# `job logs -f` exits when the job reaches a terminal state.
-( vesslctl job logs -f "$SLUG" ) &
-LOGS_PID=$!
-( sleep "$TIMEOUT_S"; kill -TERM $LOGS_PID 2>/dev/null || true ) &
+# Poll until terminal, with a hard timeout so a stuck job doesn't block the
+# agent loop indefinitely. The job continues running on VESSL after timeout —
+# kill it manually with `vesslctl job terminate $SLUG` if you want to stop billing.
+WAIT_RC=0
+( wait_for_job "$SLUG" ) &
+WAIT_PID=$!
+( sleep "$TIMEOUT_S"; kill -TERM $WAIT_PID 2>/dev/null || true ) &
 WATCHER_PID=$!
-wait "$LOGS_PID" || true
+wait "$WAIT_PID" || WAIT_RC=$?
 kill "$WATCHER_PID" 2>/dev/null || true
 
-# Final status check — the train.py exit code propagates through the job state.
-STATE="$(vesslctl job show "$SLUG" -o json 2>/dev/null \
-  | python3 -c 'import json,sys; print(json.load(sys.stdin).get("status", ""))' || true)"
-echo "submit.sh: final state $STATE"
-case "$STATE" in
-  succeeded) exit 0 ;;
-  *) exit 1 ;;
-esac
+# Always dump logs — the agent's `grep "^val_bpb:"` runs against this output.
+echo "--- job logs ($SLUG) ---"
+dump_job_logs "$SLUG"
+echo "--- end job logs ---"
+
+FINAL_STATE="$(job_state "$SLUG")"
+echo "submit.sh: final state $FINAL_STATE (wait_rc=$WAIT_RC)"
+[ "$FINAL_STATE" = "succeeded" ]

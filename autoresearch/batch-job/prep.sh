@@ -10,8 +10,10 @@
 #   AUTORESEARCH_CACHE_VOLUME   slug of the empty object volume to seed.
 #
 # Optional env vars (same defaults as submit.sh):
-#   AUTORESEARCH_RESOURCE_SPEC, AUTORESEARCH_IMAGE, AUTORESEARCH_REPO_URL,
-#   AUTORESEARCH_BRANCH         default: main (the branch to clone for prepare.py)
+#   AUTORESEARCH_RESOURCE_SPEC  default: resourcespec-a100cpu  (CPU-only is enough)
+#   AUTORESEARCH_IMAGE          default: pytorch/pytorch:2.4.1-cuda12.4-cudnn9-devel
+#   AUTORESEARCH_REPO_URL       default: https://github.com/vessl-ai/vessl-cloud-cookbook.git
+#   AUTORESEARCH_BRANCH         default: main
 #
 # Usage:
 #   bash batch-job/prep.sh
@@ -19,13 +21,16 @@
 set -euo pipefail
 
 CACHE_VOLUME="${AUTORESEARCH_CACHE_VOLUME:?set AUTORESEARCH_CACHE_VOLUME to your cache volume slug}"
-# Tokenizer training is single-threaded CPU-bound work — burning a GPU on it
-# is wasteful. Use a CPU-only spec for prep if you have one; otherwise the
-# default A100x1 is fine, just a bit overkill for ~5 minutes.
-RESOURCE_SPEC="${AUTORESEARCH_RESOURCE_SPEC:-resourcespec-a100x1}"
+# Tokenizer training is single-threaded CPU work. A CPU-only spec is the
+# right default — no point burning a GPU for ~5-10 minutes of idle.
+RESOURCE_SPEC="${AUTORESEARCH_RESOURCE_SPEC:-resourcespec-a100cpu}"
 IMAGE="${AUTORESEARCH_IMAGE:-pytorch/pytorch:2.4.1-cuda12.4-cudnn9-devel}"
 REPO_URL="${AUTORESEARCH_REPO_URL:-https://github.com/vessl-ai/vessl-cloud-cookbook.git}"
 BRANCH="${AUTORESEARCH_BRANCH:-main}"
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+# shellcheck source=./_lib.sh
+. "$SCRIPT_DIR/_lib.sh"
 
 JOB_NAME="autoresearch-prep-$(date +%s)"
 
@@ -55,22 +60,16 @@ vesslctl job create \
   --tag autoresearch-prep \
   --cmd "$JOB_CMD"
 
-SLUG=""
-for _ in $(seq 1 10); do
-  SLUG="$(vesslctl job list -o json 2>/dev/null \
-    | python3 -c 'import json,sys; d=json.load(sys.stdin); n=sys.argv[1]; print(next((j["slug"] for j in d if j["name"]==n), ""))' "$JOB_NAME" || true)"
-  [ -n "$SLUG" ] && break
-  sleep 2
-done
-[ -n "$SLUG" ] || { echo "prep.sh: failed to find job slug for $JOB_NAME" >&2; exit 3; }
-echo "prep.sh: job slug $SLUG — streaming logs (this can take ~5-15 min)"
+SLUG="$(find_job_slug "$JOB_NAME")" || { echo "prep.sh: failed to find job slug for $JOB_NAME" >&2; exit 3; }
+echo "prep.sh: job slug $SLUG — polling state (this can take ~10-15 min)"
 
-vesslctl job logs -f "$SLUG"
+WAIT_RC=0
+wait_for_job "$SLUG" || WAIT_RC=$?
 
-STATE="$(vesslctl job show "$SLUG" -o json 2>/dev/null \
-  | python3 -c 'import json,sys; print(json.load(sys.stdin).get("status", ""))' || true)"
-echo "prep.sh: final state $STATE"
-case "$STATE" in
-  succeeded) exit 0 ;;
-  *) exit 1 ;;
-esac
+echo "--- job logs ($SLUG) ---"
+dump_job_logs "$SLUG"
+echo "--- end job logs ---"
+
+FINAL_STATE="$(job_state "$SLUG")"
+echo "prep.sh: final state $FINAL_STATE (wait_rc=$WAIT_RC)"
+[ "$FINAL_STATE" = "succeeded" ]
