@@ -217,19 +217,38 @@ Total: **~$3.68**, **~40 min** wall time.
 
 Total: **~$5.10**, **~40 min** wall time, **2.5% improvement**.
 
-### What changed across GPUs
+### A100 SXM ×1 with 10-min budget (betelgeuse-na, $1.55/hr)
 
-Different baselines, different winners, *one helpful tweak in common*:
+![progress A100×10m](./progress.a100-10m.png)
 
-| | A100 ×1 | H100 ×1 |
-|---|---:|---:|
-| Baseline val_bpb | 1.1094 | 1.0107 |
-| Best val_bpb | 1.0505 | **0.9856** |
-| Improvement | 5.3% | 2.5% |
-| Round-2 winner (Adam/Muon LR sweep) | none | `MATRIX_LR=0.05` |
-| Round-3 winner (model size sweep) | `BATCH=2^18` | `BATCH=2^18` |
-| Round-4 winner (build on round-3) | none | `DEPTH=10` |
-| Total cost | ~$3.68 | ~$5.10 |
+[`results.example.a100-10m.tsv`](./results.example.a100-10m.tsv) — 3 KEEPs out of 16. *This cycle modified `prepare.py`'s `TIME_BUDGET` from 300s to 600s on the experiment branch only. Don't mix with the other two cycles' results — the eval is identical but the training compute is 2×.*
+
+- **Rounds 1–2** (experiments 1–7): single-knob tweaks. No genuine wins — all candidates within ±0.003 of baseline (1.0469). Notably, MATRIX_LR=0.05 didn't help here (it did on H100×5m).
+- **Round 3** (experiments 8–11): **same `TOTAL_BATCH_SIZE 2^19 → 2^18` win** — val_bpb 1.0469 → **1.0015**, the big drop again.
+- **Round 4** (experiments 12–15): c14 (`c10 + EMBEDDING_LR=0.5`) edged out c10 by 0.0005 (within noise, charitably called a win). DEPTH=10 *didn't* win here (it did on H100) — A100 lacks the throughput for the deeper model even with 2× the time.
+
+Total: **~$7.40**, **~60 min** wall time, **4.4% improvement**.
+
+### What changed across configurations
+
+Different baselines, different winners, *one tweak in common across all three*:
+
+| | A100 ×1 (5 min) | A100 ×1 (10 min) | H100 ×1 (5 min) |
+|---|---:|---:|---:|
+| Baseline val_bpb | 1.1094 | 1.0469 | 1.0107 |
+| Best val_bpb | 1.0505 | 1.0010 | **0.9856** |
+| Improvement | 5.3% | 4.4% | 2.5% |
+| Round-2 winner (Adam/Muon LR) | none | none | `MATRIX_LR=0.05` |
+| Round-3 winner (model/batch) | `BATCH=2^18` | `BATCH=2^18` | `BATCH=2^18` |
+| Round-4 winner (refine c10) | none | `EMBEDDING_LR=0.5` (noise) | `DEPTH=10` |
+| Total cost | ~$3.68 | ~$7.40 | ~$5.10 |
+| Total wall time | ~40 min | ~60 min | ~40 min |
+
+Three observations:
+
+- **A100×10min ≈ H100×5min in compute, but not in val_bpb** (1.0010 vs 0.9856). Doubling A100 wall time gets close to but not past H100 — H100 has architectural advantages (FA3 native, higher MFU at 31% vs A100's 16%) that aren't just throughput.
+- **`TOTAL_BATCH_SIZE 2^19 → 2^18` is the universal winner** — same hyperparameter wins all three cycles. Strong evidence the upstream default is over-tuned for batch-size assumptions that don't hold under any 5–10 min budget.
+- **Hardware-specific tweaks don't transfer.** `MATRIX_LR=0.05` helps only on H100; `DEPTH=10` only when both H100 and a smaller-batch base. Generic "this LR is better" advice doesn't survive a hardware swap.
 
 Two takeaways:
 

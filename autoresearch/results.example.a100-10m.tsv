@@ -1,0 +1,17 @@
+commit	val_bpb	memory_gb	status	description
+91ea530	1.046856	44.0	keep	baseline (defaults, A100 10-min budget)
+8cb088a	1.046964	44.0	discard	c1: EMBEDDING_LR 0.6 -> 0.4
+aedc12d	1.046406	44.0	discard	c2: WEIGHT_DECAY 0.2 -> 0.1
+e9e0fdb	1.047802	44.0	discard	c3: WINDOW_PATTERN SSSL -> L (full attn)
+7364eca	1.049101	44.0	discard	c4: WARMDOWN_RATIO 0.5 -> 0.3
+0a69c68	1.048341	44.0	discard	c5: ADAM_BETAS (0.8,0.95) -> (0.9,0.95)
+3baec53	1.047848	44.0	discard	c6: MATRIX_LR 0.04 -> 0.05
+4a2a720	1.048362	44.0	discard	c7: WARMUP_RATIO 0.0 -> 0.05
+58afc9d	1.031365	26.5	discard	c8: DEPTH 8 -> 6 (smaller model)
+b0c0682	1.046601	44.0	discard	c9: ASPECT_RATIO 64 -> 56
+5943eb7	1.001525	43.8	keep	c10: TOTAL_BATCH_SIZE 2^19 -> 2^18 (round 3 winner)
+54b5047	1.024281	26.4	discard	c11: depth=6 + batch 2^18 (combo)
+a145452	1.001756	43.8	discard	c12: c10 + MATRIX_LR 0.04 -> 0.05
+0edf290	1.004235	43.8	discard	c13: c10 + WARMDOWN_RATIO 0.5 -> 0.3
+4dc98f3	1.000992	43.8	keep	c14: c10 + EMBEDDING_LR 0.6 -> 0.5 (round 4 winner)
+029af25	1.005420	66.2	discard	c15: c10 + DEPTH 8 -> 10
