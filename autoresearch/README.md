@@ -173,34 +173,76 @@ is much more interesting once you can actually run experiments in
 parallel — different research directions, different priors, late-night
 synthesis when they all check in.
 
-## Example research cycle
+## Example research cycles
 
-A real 16-experiment, 4-round Mode B cycle on this setup is bundled as a
-reference: see [`results.example.tsv`](./results.example.tsv) and
-[`progress.png`](./progress.png).
+Two real 16-experiment, 4-round Mode B cycles are bundled as references —
+the **same agent loop** run against two different GPUs, so you can see
+how the choice of compute changes which hyperparameters win.
 
-![progress](./progress.png)
+### A100 SXM ×1 (betelgeuse-na, $1.55/hr)
 
-The story it tells:
+![progress A100](./progress.a100.png)
 
-- **Rounds 1–2** (experiments 1–7): single-knob tweaks against the
-  H100-tuned defaults — `EMBEDDING_LR`, `WEIGHT_DECAY`, `WINDOW_PATTERN`,
-  `WARMDOWN_RATIO`, `ADAM_BETAS`, `MATRIX_LR`, `WARMUP_RATIO`. None beat
-  baseline. Karpathy's defaults are well-tuned.
-- **Round 3** (experiments 8–11): bigger swings — smaller depth, smaller
-  batch. **Breakthrough**: `TOTAL_BATCH_SIZE 2^19 → 2^18` doubles the
-  number of optimizer steps that fit in 5 minutes on A100 (since the
-  default was tuned for H100's higher throughput). val_bpb drops from
-  1.109 → **1.050** (5.3% improvement).
+[`results.example.a100.tsv`](./results.example.a100.tsv) — 2 KEEPs out of 16:
+
+- **Rounds 1–2** (experiments 1–7): single-knob tweaks (`EMBEDDING_LR`,
+  `WEIGHT_DECAY`, `WINDOW_PATTERN`, `WARMDOWN_RATIO`, `ADAM_BETAS`,
+  `MATRIX_LR`, `WARMUP_RATIO`). None beat baseline.
+- **Round 3** (experiments 8–11): **breakthrough** — `TOTAL_BATCH_SIZE
+  2^19 → 2^18` doubles the optimizer steps that fit in 5 minutes on A100
+  (defaults were tuned for H100's higher throughput). val_bpb drops from
+  1.109 → **1.050**, a 5.3% improvement.
 - **Round 4** (experiments 12–15): refinements on top of the round-3
   winner. None beat it. The recipe converged.
 
-Total spend for the cycle: **~$3.68** (16 experiments × ~$0.23 each at
-$1.55/hr A100). Wall time: **~40 minutes** (4 rounds × ~10 min each, with
-4 jobs running in parallel per round). The same work would take ~2 hours
-of sequential compute on a single H100 in the original autoresearch.
+Total: **~$3.68**, **~40 min** wall time.
 
-To regenerate `progress.png` from your own `results.tsv`, run
+### H100 SXM ×1 (deneb-kr, $2.39/hr)
+
+![progress H100](./progress.h100.png)
+
+[`results.example.h100.tsv`](./results.example.h100.tsv) — 4 KEEPs out of 16:
+
+- **Round 1** (experiments 1–3): same single-knob tweaks. None beat
+  baseline (1.0107).
+- **Round 2** (experiments 4–7): **first improvement** — `MATRIX_LR
+  0.04 → 0.05` drops val_bpb to 1.0081.
+- **Round 3** (experiments 8–11): **same `TOTAL_BATCH_SIZE 2^19 → 2^18`
+  trick wins again** — drops to 0.9986. Smaller batch helps even on H100,
+  not just A100.
+- **Round 4** (experiments 12–15): on top of the smaller batch, going
+  *deeper* (DEPTH 8 → 10) wins — **val_bpb = 0.9856**, the best run of
+  either cycle. H100 has the headroom for the bigger model that A100
+  doesn't.
+
+Total: **~$5.10**, **~40 min** wall time, **2.5% improvement**.
+
+### What changed across GPUs
+
+Different baselines, different winners, *one helpful tweak in common*:
+
+| | A100 ×1 | H100 ×1 |
+|---|---:|---:|
+| Baseline val_bpb | 1.1094 | 1.0107 |
+| Best val_bpb | 1.0505 | **0.9856** |
+| Improvement | 5.3% | 2.5% |
+| Round-2 winner (Adam/Muon LR sweep) | none | `MATRIX_LR=0.05` |
+| Round-3 winner (model size sweep) | `BATCH=2^18` | `BATCH=2^18` |
+| Round-4 winner (build on round-3) | none | `DEPTH=10` |
+| Total cost | ~$3.68 | ~$5.10 |
+
+Two takeaways:
+
+- **The H100 baseline is already what you'd expect** (~karpathy's
+  reference of 0.998); A100 is ~10% worse out of the box because there's
+  less compute per second to spend.
+- **The same hyperparameter knob (`TOTAL_BATCH_SIZE 2^19 → 2^18`) wins
+  on both GPUs.** On A100 it's *the* breakthrough; on H100 it's an
+  intermediate stop on the way to making the model deeper. Smaller
+  batches → more optimizer steps → faster convergence in a fixed wall-
+  clock budget.
+
+To regenerate either chart from your own `results.tsv`, run
 `analysis.ipynb` (or `jupyter nbconvert --execute analysis.ipynb`).
 
 ## How submit.sh works
