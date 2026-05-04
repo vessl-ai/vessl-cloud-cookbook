@@ -9,7 +9,7 @@ Each top-level folder is a self-contained recipe. Clone the repo (or just the fo
 | Recipe | Task | GPU | Approx. cost | Approx. time |
 |--------|------|-----|-------------:|-------------:|
 | [gemma4-finetuning](./gemma4-finetuning) (reference implementation) | LoRA fine-tune Gemma 4 E4B on a small domain QA dataset | A100 SXM 80 GB × 1 | ~$0.43 | ~16 min |
-| [autoresearch](./autoresearch) | Run [karpathy/autoresearch](https://github.com/karpathy/autoresearch) on cloud GPUs — an AI agent runs its own LLM pretraining experiments overnight, fanning out K candidates per round in parallel | H100 SXM 80 GB × 1 | ~$0.33/experiment (~$5 / 16-experiment cycle) | ~8 min/experiment (~40 min / 16-experiment cycle) |
+| [autoresearch](./autoresearch) | Run [karpathy/autoresearch](https://github.com/karpathy/autoresearch) on cloud GPUs — an AI agent runs its own LLM pretraining experiments overnight, fanning out K candidates per round in parallel | H100 SXM 80 GB × 1 | $0.33/experiment ($5 / 16-experiment cycle) | ~8 min/experiment (~40 min / 16-experiment cycle) |
 
 Prices as of 2026-05-03; see each recipe's `benchmarks.md` for details.
 
