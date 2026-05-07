@@ -49,6 +49,10 @@ Both paths use the same model, dataset, and LoRA configuration.
 
 The notebook runs end-to-end on a single A100 SXM in about 15 minutes plus image pull time. Stop the workspace when you're done — Object storage persists across stops.
 
+![Adapter and tokenizer files saved to /shared/gemma4-vessl-expert/final after a Path A run](./images/saved-adapter.png)
+
+*After **Run All Cells**, the adapter and tokenizer files land in `/shared/gemma4-vessl-expert/final/`. Object storage persists across workspace stops, so any teammate mounting the same volume picks up from here — see [Load adapter](#load-adapter).*
+
 ## LoRA hyperparameters
 
 These flags control the adapter's capacity and which parts of the model it modifies. The values shown are what this recipe uses for the VESSL-domain run (`DATASET_MODE=vessl`); the generic run (`DATASET_MODE=generic`) uses `r=8, lora_alpha=8`.
@@ -84,6 +88,10 @@ Also from `batch-job/finetune_gemma4.py` — `SFTConfig`. Values shown for the V
 | `weight_decay` | 0.01 | 0.001 | Standard regularisation. |
 | `optim` | `"adamw_8bit"` | `"adamw_8bit"` | 8-bit AdamW keeps optimiser memory low. |
 | `seed` | 3407 | 3407 | Fixed for reproducibility. |
+
+![60-step training loss trajectory starting around 2.37 and decreasing steadily](./images/training-loss.png)
+
+*Training loss trace from a representative 60-step run — starts near 2.37 and trends downward, the textbook SFT shape. Plot your own `trainer_state.json` log to spot anomalies in your runs.*
 
 ## Path B: vesslctl batch job
 
@@ -125,6 +133,10 @@ Mirror of [benchmarks.md](./benchmarks.md) for skim-ability — a successful VES
 - **Peak VRAM**: 11.08 GB on an 80 GB A100 — plenty of headroom.
 - **Behavioural change**: the fine-tuned model confidently answers VESSL-specific questions the base model refuses (e.g., workspace pause mechanics, storage trade-offs).
 - **Honest caveat**: the model fabricates specific numbers (prices, VRAM specs). See [Known limitations](#known-limitations).
+
+![nvidia-smi snapshot during training showing peak VRAM around 11 GB on an 80 GB A100](./images/peak-vram.png)
+
+*`nvidia-smi` snapshot from a Path A run — peak VRAM ~11 GB on the 80 GB A100. QLoRA + gradient checkpointing keep usage well under the card, leaving headroom for larger batches or longer sequences.*
 
 ## Custom data
 
