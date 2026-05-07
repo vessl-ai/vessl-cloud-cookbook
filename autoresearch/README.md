@@ -18,6 +18,8 @@ better model.
 
 Numbers measured 2026-05-03 on VESSL Cloud — full breakdown in [benchmarks.md](./benchmarks.md).
 
+> **Tutorial walkthrough:** [Run autoresearch in parallel](https://docs.vessl.ai/examples/autoresearch) on the VESSL Cloud docs walks through this recipe step by step, including the K-way fan-out pattern and the cache volume setup.
+
 ## What this recipe is
 
 The autoresearch idea (verbatim from karpathy): give an AI agent a small but

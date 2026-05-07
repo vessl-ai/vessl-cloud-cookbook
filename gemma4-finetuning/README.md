@@ -14,6 +14,8 @@ LoRA fine-tune Gemma 4 E4B on a small (36-sample) domain QA dataset using Unslot
 
 Numbers measured 2026-04-16 on VESSL Cloud — full breakdown in [benchmarks.md](./benchmarks.md).
 
+> **Tutorial walkthrough:** [Fine-tune Gemma 4](https://docs.vessl.ai/examples/fine-tuning-gemma-4) on the VESSL Cloud docs walks through this recipe with explanations of LoRA hyperparameters, the storage layout, and evaluation patterns.
+
 ## Two ways to run
 
 - **Path A — Interactive notebook** (`notebook/gemma4-finetuning.ipynb`): step through the fine-tune in a VESSL Cloud workspace. Best for a first run and for iterating on hyperparameters.
