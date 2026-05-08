@@ -18,7 +18,7 @@ better model.
 
 Numbers measured 2026-05-03 on VESSL Cloud — full breakdown in [benchmarks.md](./benchmarks.md).
 
-> **Tutorial walkthrough:** [Run autoresearch in parallel](https://docs.vessl.ai/examples/autoresearch) on the VESSL Cloud docs walks through this recipe step by step, including the K-way fan-out pattern and the cache volume setup.
+> **Tutorial walkthrough:** [Run autoresearch in parallel](https://docs.cloud.vessl.ai/examples/autoresearch) on the VESSL Cloud docs walks through this recipe step by step, including the K-way fan-out pattern and the cache volume setup.
 
 ## What this recipe is
 
@@ -271,4 +271,4 @@ directly comparable to H100 / karpathy's reference.
 - Upstream repo and intent: <https://github.com/karpathy/autoresearch>
 - Karpathy's announcement tweet: <https://x.com/karpathy/status/2029701092347630069>
 - "Dummy's Guide" to autoresearch: <https://x.com/hooeem/status/2030720614752039185>
-- VESSL Cloud docs: <https://docs.vessl.ai>
+- VESSL Cloud docs: <https://docs.cloud.vessl.ai>

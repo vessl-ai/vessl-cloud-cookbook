@@ -84,5 +84,5 @@ VESSL_OBJECT_VOLUME=<your-volume-name> ./submit.sh <args>
 
 ## Further reading
 
-- [VESSL Cloud docs](https://docs.vessl.ai)
+- [VESSL Cloud docs](https://docs.cloud.vessl.ai)
 - <TODO: links to model card, paper, or related blog post>

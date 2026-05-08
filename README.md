@@ -29,7 +29,7 @@ Prices as of 2026-05-03; see each recipe's `benchmarks.md` for details.
 ## Prerequisites
 
 - A VESSL Cloud account with credits.
-- [vesslctl](https://docs.vessl.ai/) installed and authenticated (required for Path B).
+- [vesslctl](https://docs.cloud.vessl.ai/) installed and authenticated (required for Path B).
 - A Hugging Face access token for gated models (Gemma 4 is gated).
 
 ## Contributing a recipe
@@ -49,5 +49,5 @@ AI coding assistants (Claude Code, Cursor, Codex, Aider) work well here — poin
 ## Links
 
 - [VESSL Cloud](https://cloud.vessl.ai)
-- [VESSL Cloud docs](https://docs.vessl.ai)
+- [VESSL Cloud docs](https://docs.cloud.vessl.ai)
 - [VESSL blog](https://blog.vessl.ai)

@@ -14,7 +14,7 @@ LoRA fine-tune Gemma 4 E4B on a small (36-sample) domain QA dataset using Unslot
 
 Numbers measured 2026-04-16 on VESSL Cloud — full breakdown in [benchmarks.md](./benchmarks.md).
 
-> **Tutorial walkthrough:** [Fine-tune Gemma 4](https://docs.vessl.ai/examples/fine-tuning-gemma-4) on the VESSL Cloud docs walks through this recipe with explanations of LoRA hyperparameters, the storage layout, and evaluation patterns.
+> **Tutorial walkthrough:** [Fine-tune Gemma 4](https://docs.cloud.vessl.ai/examples/fine-tuning-gemma-4) on the VESSL Cloud docs walks through this recipe with explanations of LoRA hyperparameters, the storage layout, and evaluation patterns.
 
 ## Two ways to run
 
@@ -27,7 +27,7 @@ Both paths use the same model, dataset, and LoRA configuration.
 
 - A **VESSL Cloud** account — [sign up here](https://cloud.vessl.ai/~/signup) if you don't have one.
 - A **Hugging Face** access token. Gemma 4 itself is gated, but this recipe uses the `unsloth/gemma-4-E4B-it` mirror which does not require a token. Keep a token handy if you later switch to the official Google mirror.
-- **vesslctl** installed and authenticated (Path B only) — see the [vesslctl docs](https://docs.vessl.ai/).
+- **vesslctl** installed and authenticated (Path B only) — see the [vesslctl docs](https://docs.cloud.vessl.ai/).
 - **Python ≥ 3.10** (matches the container image used below).
 
 ## Path A: Interactive notebook
