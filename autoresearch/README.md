@@ -62,7 +62,7 @@ the cloud, all mounting the same read-only cache volume.
   `VESSLCTL_ORG` / `VESSLCTL_TEAM` env vars). All `vesslctl` invocations in
   this recipe — `volume create`, `prep.sh`, `submit.sh` — pick up whichever
   org and team are currently active.
-- An object volume to hold the data cache (~10 GB). Create one once:
+- An object volume to hold the data cache (~1 GB). Create one once:
   ```bash
   vesslctl volume create \
     --name autoresearch-cache \
@@ -90,7 +90,7 @@ Useful for sanity-checking the setup before turning the agent loose
 overnight.
 
 ```bash
-# 1. One-time data prep (downloads ~10 GB into AUTORESEARCH_CACHE_VOLUME).
+# 1. One-time data prep (downloads ~1 GB into AUTORESEARCH_CACHE_VOLUME).
 bash batch-job/prep.sh
 
 # 2. Cut a branch, run the baseline once.
@@ -197,7 +197,7 @@ The story it tells (4 KEEPs out of 16):
   *deeper* (DEPTH 8 → 10) wins — **val_bpb = 0.9856**, beating karpathy's
   published 0.9979 reference.
 
-Total spend: **~$5.10** (16 experiments × ~$0.33 each at $2.39/hr H100).
+Total spend: **~$5.28** (16 experiments × ~$0.33 each at $2.39/hr H100).
 Wall time: **~40 minutes** (4 rounds × ~10 min each, 4 jobs running in
 parallel per round). The same work would take ~2 hours of sequential
 compute on a single H100 in the original autoresearch.
