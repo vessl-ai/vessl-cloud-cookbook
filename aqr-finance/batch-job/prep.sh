@@ -64,6 +64,24 @@ if [ -z "${KAGGLE_USERNAME:-}" ] && [ -f "$HOME/.kaggle/kaggle.json" ]; then
   fi
 fi
 
+# kaggle.com hands out new-format tokens (KGAT_...) but the Settings UI
+# doesn't tell users which JSON field to put them in. If the user pasted
+# the new token into the legacy `key` field, kaggle.json ends up as
+# {"username":"...","key":"KGAT_..."} — kaggle CLI tries legacy HMAC
+# auth with a token-shaped key and fails. Detect that shape and promote
+# the key to KAGGLE_API_TOKEN so the container picks the new-token path.
+if [ -z "${KAGGLE_API_TOKEN:-}" ] && [ -n "${KAGGLE_KEY:-}" ]; then
+  case "$KAGGLE_KEY" in
+    KGAT_*)
+      KAGGLE_API_TOKEN="$KAGGLE_KEY"
+      export KAGGLE_API_TOKEN
+      unset KAGGLE_KEY
+      unset KAGGLE_USERNAME
+      echo "prep.sh: KAGGLE_KEY looks like a new-format token, promoted to KAGGLE_API_TOKEN"
+      ;;
+  esac
+fi
+
 JOB_NAME="aqr-finance-prep-$(date +%s)"
 
 JOB_CMD=$(cat <<EOF
