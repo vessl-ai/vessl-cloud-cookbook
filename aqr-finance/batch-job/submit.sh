@@ -65,21 +65,51 @@ git push --force-with-lease -u origin "$BRANCH" >&2
 
 # Job command runs inside the container. Idempotent: prepare.py is a no-op
 # if the manifest matches (data + tokenizer cached on mounted volume).
+#
+# We rely on the NVIDIA pytorch:25.10-py3 image's pre-installed, NVIDIA-tuned
+# torch + triton + CUDA stack — building our own venv would shadow those
+# binaries with PyPI wheels (the trap that ate dry-runs 3-6). We only add
+# the framework layer (unsloth + trl + transformers v5 + peft + accelerate)
+# and the dataset/eval Python deps. Unsloth ships its own Triton kernels so
+# we don't pin flash-linear-attention / causal-conv1d directly — Unsloth
+# pulls compatible versions transitively.
 JOB_CMD=$(cat <<EOF
 set -e
-apt-get update -qq && apt-get install -y -qq git curl
+apt-get update -qq && apt-get install -y -qq git curl unzip
 mkdir -p /workspace && cd /workspace
 git clone --depth 1 --branch "${BRANCH}" "${REPO_URL}" .
 cd aqr-finance
-curl -LsSf https://astral.sh/uv/install.sh | sh
-export PATH="\$HOME/.local/bin:\$PATH"
 mkdir -p "\$HOME/.cache/aqr-finance"
+
+# Framework layer on top of NVIDIA-tuned base stack.
+pip install --no-cache-dir --upgrade pip
+pip install --no-cache-dir \
+  'unsloth' \
+  'unsloth_zoo' \
+  'transformers>=5.5' \
+  'trl>=0.12' \
+  'peft>=0.13' \
+  'accelerate>=1.0' \
+  'datasets>=3.0' \
+  'huggingface_hub>=0.26' \
+  'numpy<3.0' \
+  'pandas>=2.2' \
+  'scikit-learn>=1.5' \
+  'matplotlib>=3.10' \
+  'pyarrow>=18.0' \
+  'kaggle>=1.6' \
+  'tqdm>=4.66'
+
 if [ ! -f "\$HOME/.cache/aqr-finance/data/manifest.json" ]; then
   echo "submit: cache empty, running prepare.py"
-  uv run prepare.py
+  python prepare.py
 fi
-uv run accelerate launch --config_file accelerate_config.yaml train.py
-uv run eval.py
+
+# Single-process train — Unsloth's OSS path is single-GPU optimized; multi-GPU
+# DDP comes later once boot is verified. accelerate_config.yaml is retained
+# in-tree for the multi-GPU follow-up but unused here.
+python train.py
+python eval.py
 EOF
 )
 
