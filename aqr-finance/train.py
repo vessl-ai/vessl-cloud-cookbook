@@ -217,8 +217,13 @@ def main() -> None:
         bf16=True,
         fp16=False,
         logging_steps=LOG_INTERVAL,
-        eval_steps=EVAL_INTERVAL,
-        eval_strategy="steps",
+        # Skip in-loop eval: the lm_head full-vocab logits step (248 K vocab × seq)
+        # asks for ~3.8 GB on top of the already 76 GB train-time footprint, OOMs
+        # at the first eval boundary. The cookbook's primary metric is JPX leakage
+        # premium from eval.py (base vs adapter A/B) at end of training, not val
+        # loss curves — 1 B tokens ≈ 1 epoch on filtered FineWeb, so in-loop val
+        # loss adds little signal for the trade.
+        eval_strategy="no",
         save_strategy="steps",
         save_steps=SAVE_INTERVAL,
         save_total_limit=2,
