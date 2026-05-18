@@ -31,6 +31,13 @@ dependencies = [
 no-binary-package = ["causal-conv1d", "flash-linear-attention"]
 no-build-isolation-package = ["causal-conv1d"]
 
+# `no-build-isolation-package = ["causal-conv1d"]` runs the build against
+# the project venv (so torch ABI matches at compile time), but uv venvs
+# don't ship setuptools/wheel by default. causal-conv1d's setup.py needs
+# them, so inject explicitly here.
+[tool.uv.extra-build-dependencies]
+causal-conv1d = ["setuptools", "wheel", "packaging"]
+
 [tool.uv.sources]
 torch = [
     { index = "pytorch-cu124" },
