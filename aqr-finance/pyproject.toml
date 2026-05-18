@@ -17,9 +17,11 @@ dependencies = [
     "peft==0.18.1",
     "pyarrow>=18.0",
     "scikit-learn>=1.5",
+    "setuptools>=68",
     "torch==2.5.1",
     "tqdm>=4.66",
     "transformers==5.2.0",
+    "wheel",
 ]
 
 [tool.uv]
