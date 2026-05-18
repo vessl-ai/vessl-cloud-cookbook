@@ -64,6 +64,7 @@ CHRONO_TEST_START = "2021-01-01"
 MAX_STOCKS = 200             # subset for the eval; raise after sanity passes
 DATES_PER_STOCK = 30         # (stock, date) pairs sampled per stock => ~6,000 rows
 SEQ_LEN = 256
+BATCH_SIZE = 16              # forward batch for embedding; 6000 rows / 16 ≈ 375 batches
 RIDGE_ALPHA = 1.0
 KFOLD_N = 5
 
@@ -128,28 +129,52 @@ def build_prompt(row) -> str:
 
 @torch.no_grad()
 def llm_embeddings(model, tokenizer, prompts):
-    """Last-layer last-token hidden state per prompt. Returns (N, H) float32."""
+    """Last-layer last-non-pad-token hidden state per prompt, batched.
+    Returns (N, H) float32.
+
+    Per-prompt forward is ~1.5 s for 35 B bf16 on H100; with batch=16 the
+    throughput goes up ~10-15x (the bottleneck shifts from launch overhead
+    to attention compute) and 6k prompts finish in ~5-10 min per model.
+    """
     model.eval()
     device = next(model.parameters()).device
+    if tokenizer.pad_token_id is None:
+        tokenizer.pad_token_id = tokenizer.eos_token_id
+
     embs = []
     t0 = time.time()
     last_log = t0
-    for i, text in enumerate(prompts):
-        ids = tokenizer(
-            text,
+    for batch_start in range(0, len(prompts), BATCH_SIZE):
+        batch = prompts[batch_start:batch_start + BATCH_SIZE]
+        enc = tokenizer(
+            batch,
             return_tensors="pt",
-            max_length=SEQ_LEN,
+            padding=True,
             truncation=True,
-        ).input_ids.to(device)
-        out = model(input_ids=ids, output_hidden_states=True, use_cache=False)
-        last_hidden = out.hidden_states[-1]
-        emb = last_hidden[0, -1, :].float().cpu().numpy()
-        embs.append(emb)
+            max_length=SEQ_LEN,
+        )
+        ids = enc.input_ids.to(device)
+        mask = enc.attention_mask.to(device)
+        out = model(
+            input_ids=ids,
+            attention_mask=mask,
+            output_hidden_states=True,
+            use_cache=False,
+        )
+        last_hidden = out.hidden_states[-1]  # (B, T, H)
+        # Index of the last non-pad token per sequence.
+        seq_lens = mask.sum(dim=1) - 1  # (B,)
+        for i in range(len(batch)):
+            emb = last_hidden[i, int(seq_lens[i].item()), :].float().cpu().numpy()
+            embs.append(emb)
+        done = batch_start + len(batch)
         now = time.time()
         if now - last_log > 30:
+            rate = done / max(1.0, now - t0)
+            eta = (len(prompts) - done) / max(1.0, rate)
             print(
-                f"eval.py: embedded {i + 1}/{len(prompts)} prompts "
-                f"({(i + 1) / max(1.0, now - t0):.1f} prompts/s)",
+                f"eval.py: embedded {done}/{len(prompts)} prompts "
+                f"({rate:.1f} prompts/s, ETA {eta:.0f}s)",
                 flush=True,
             )
             last_log = now
