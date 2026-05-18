@@ -80,8 +80,8 @@ for slug in "${slugs[@]}"; do
   echo "=== $slug ($state) ==="
   if [ "$state" = "succeeded" ]; then
     vesslctl job logs --limit 1000 "$slug" 2>&1 \
-      | grep -E "^r2_leakage_off:|^r2_leakage_on:|^leakage_premium:|^val_loss_final:|^val_loss_first30min:|^training_seconds:|^total_seconds:|^peak_vram_mb:|^num_trainable_M:|^num_trainable_pct:|^num_train_tokens_M:|^---" \
-      | tail -30
+      | grep -E "^r2_leakage_off:|^r2_leakage_on:|^leakage_premium:|^base_r2_leakage_off:|^base_r2_leakage_on:|^base_leakage_premium:|^premium_reduction:|^val_loss_final:|^val_loss_first30min:|^training_seconds:|^total_seconds:|^peak_vram_mb:|^num_trainable_M:|^num_trainable_pct:|^num_train_tokens_M:|^---" \
+      | tail -40
   else
     # Non-succeeded: dump the tail so the agent can see the trace.
     vesslctl job logs --limit 1000 "$slug" 2>&1 | tail -40

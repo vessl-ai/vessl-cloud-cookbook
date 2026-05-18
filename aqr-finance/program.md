@@ -113,9 +113,12 @@ the NaN watchdog to fire. Reference:
 <https://github.com/shanemmattner/qwen-rft-pipeline#deltanet-lora-target-reference>
 
 **Success metric**: lower `val_loss_final` is better in train.py terms,
-but the cookbook's real metric is `r2_leakage_off` from `eval.py` (higher =
-better out-of-sample financial signal). `leakage_premium =
-r2_leakage_on - r2_leakage_off` quantifies the lookahead-bias gap.
+but the cookbook's real metric is **`premium_reduction`** from `eval.py`:
+the gap between `base_leakage_premium` (base model alone) and the adapter's
+`leakage_premium`. If continued PT on the <= 2017-06 slice removed
+lookahead bias, `premium_reduction > 0` is the quantitative proof.
+`r2_leakage_off` (adapter, chronological split, higher = better
+out-of-sample) is the secondary headline.
 
 **Simplicity criterion**: All else being equal, simpler is better. A small
 improvement that adds ugly complexity is not worth it. A small improvement
@@ -156,13 +159,18 @@ num_trainable_pct:   0.0552
 num_train_tokens_M:  1000.0
 ---
 --- eval.py summary ---
-r2_leakage_off:    0.0123
-r2_leakage_on:     0.0418
-leakage_premium:   0.0295
-n_test_samples:    142103
-n_total_samples:   486527
-n_unique_stocks:   200
-eval_seconds:      482.1
+r2_leakage_off:        0.0123        # adapter, chronological split
+r2_leakage_on:         0.0418        # adapter, random 5-fold CV
+leakage_premium:       0.0295        # adapter (r2_on - r2_off)
+base_r2_leakage_off:   0.0089        # base only, chronological
+base_r2_leakage_on:    0.0612        # base only, random 5-fold CV
+base_leakage_premium:  0.0523        # base (r2_on - r2_off)
+premium_reduction:     0.0228        # base_premium - adapter_premium >> 0 = good
+n_test_samples:        1421
+n_total_samples:       6000
+n_unique_stocks:       200
+dates_per_stock:       30
+eval_seconds:          1820.5
 ---
 ```
 
@@ -220,8 +228,9 @@ LOOP FOREVER:
    trace. NaN exit 42 = LoRA / lr / FSDP config; OOM = wrap policy or
    batch; VESSL scheduling error = retry the job.
 7. Record the results in `results.tsv` (do not commit this file).
-8. If `r2_leakage_off` improved, "advance" the branch — keep the commit.
-9. If `r2_leakage_off` is equal or worse, `git reset --hard HEAD~1` to
+8. If `premium_reduction` improved (or `r2_leakage_off` if the base
+   number didn't move), "advance" the branch — keep the commit.
+9. If neither moved or both got worse, `git reset --hard HEAD~1` to
    discard the change.
 
 ### Mode B: Batch (parallel fan-out, pick best of K)

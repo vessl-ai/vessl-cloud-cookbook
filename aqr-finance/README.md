@@ -212,13 +212,15 @@ your edits probably broke this invariant.
   `prep.sh` — the script forwards them into the container via
   `vesslctl job create --env`. Alternatively, place `stock_prices.csv`
   at `~/.cache/aqr-finance/jpx/` on the cache volume manually.
-- **Eval baseline is a first cut, not a production signal.** `eval.py`
-  encodes one LLM embedding per *stock identifier* (constant across dates
-  of that stock), which from the regression's point of view is effectively
-  a stock fixed effect. The numbers are useful for "does the adapter shift
-  R^2 vs the base model" sanity checks, but the AQR-style date-conditional
-  signal needs a richer prompt (latest news headline, recent price moves)
-  that we'll layer in a follow-up.
+- **Eval uses date-conditional prompts + base-vs-adapter A/B.** `eval.py`
+  builds one prompt per (stock, date) pair embedding the date plus recent
+  5-day / 30-day log returns and 20-day volatility, then compares the
+  chronological vs random-CV R^2 gap (leakage premium) for BOTH the base
+  model AND the LoRA-trained adapter. The publishable signal is
+  `premium_reduction = base_premium - adapter_premium`: if continued PT
+  on the <= 2017-06 slice did its job, the adapter premium should be
+  smaller than the base premium. First-cut sample size = 200 stocks ×
+  30 random dates = ~6,000 rows; raise once the baseline lands.
 - **`Qwen3.5-35B-A3B-Base` requires `trust_remote_code=True`.** The
   hybrid DeltaNet + Gated Attention architecture isn't (yet) upstream in
   `transformers`. Pin the model card revision in production.
