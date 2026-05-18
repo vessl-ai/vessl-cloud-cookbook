@@ -246,6 +246,14 @@ def main():
         bias="none",
     )
     model = get_peft_model(model, lora_config)
+    # PEFT creates LoRA A/B in fp32 by default; base is bf16. FSDP refuses
+    # to flatten a wrap unit containing mixed dtypes ("Must flatten tensors
+    # with uniform dtype"). Cast trainable params to bf16 to match. LoRA
+    # updates have small magnitude relative to base, so the fp32 precision
+    # margin isn't load-bearing at our scale.
+    for _name, _param in model.named_parameters():
+        if _param.requires_grad:
+            _param.data = _param.data.to(torch.bfloat16)
     # Required for gradient checkpointing on PEFT-wrapped models (otherwise
     # the input embeddings don't propagate grad to LoRA params).
     model.enable_input_require_grads()
