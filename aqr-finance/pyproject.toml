@@ -17,17 +17,17 @@ dependencies = [
     "peft>=0.13",
     "pyarrow>=18.0",
     "scikit-learn>=1.5",
-    "torch==2.9.1",
+    "torch==2.4.1",
     "tqdm>=4.66",
-    "transformers>=4.46",
+    "transformers>=4.51",
 ]
 
 [tool.uv.sources]
 torch = [
-    { index = "pytorch-cu128" },
+    { index = "pytorch-cu124" },
 ]
 
 [[tool.uv.index]]
-name = "pytorch-cu128"
-url = "https://download.pytorch.org/whl/cu128"
+name = "pytorch-cu124"
+url = "https://download.pytorch.org/whl/cu124"
 explicit = true
