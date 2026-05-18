@@ -222,7 +222,13 @@ def main() -> None:
         save_strategy="steps",
         save_steps=SAVE_INTERVAL,
         save_total_limit=2,
-        optim="adamw_torch",  # adamw_8bit breaks on CUDA 13.2 (DGX Spark forum confirmed).
+        # adamw_torch keeps fp32 Adam state (exp_avg + exp_avg_sq) per trainable param
+        # → 945 M trainable × 4 B × 2 = 7.5 GB extra. With a 74 GB model that's the
+        # difference between fit and OOM at the very first optimizer.step().
+        # adamw_8bit packs the state to int8 → ~1.9 GB. The DGX Spark forum warning
+        # about adamw_8bit was for CUDA 13.2; we're on 12.8, the version bitsandbytes
+        # ships stable wheels for.
+        optim="adamw_8bit",
         report_to="none",
         seed=42,
         dataloader_num_workers=0,  # forum: avoids multiprocessing fork deadlock with IterableDataset
