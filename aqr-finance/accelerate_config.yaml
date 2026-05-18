@@ -2,15 +2,15 @@ compute_environment: LOCAL_MACHINE
 distributed_type: FSDP
 downcast_bf16: 'no'
 fsdp_config:
-  # SIZE_BASED_WRAP with a 1M-param floor wraps every meaningful layer
-  # (incl. MoE experts) without us having to guess the decoder layer
-  # class name. If you later confirm the actual decoder class (e.g.
-  # Qwen3MoeDecoderLayer or Qwen3HybridDecoderLayer), switch to
-  # TRANSFORMER_BASED_WRAP for slightly better overlap.
-  fsdp_auto_wrap_policy: SIZE_BASED_WRAP
+  # TRANSFORMER_BASED_WRAP shards at decoder-layer granularity so each
+  # unshard at forward time touches one 40-layer slice (~875 MB) instead
+  # of pulling the whole 35B model onto a single GPU. Verified class
+  # name via transformers/models/qwen3_5_moe/modeling_qwen3_5_moe.py
+  # _no_split_modules (line 3570) and our dry-run stack trace at line 126.
+  fsdp_auto_wrap_policy: TRANSFORMER_BASED_WRAP
+  fsdp_transformer_layer_cls_to_wrap: Qwen3_5MoeDecoderLayer
   fsdp_backward_prefetch: BACKWARD_PRE
   fsdp_cpu_ram_efficient_loading: true
-  fsdp_min_num_params: 1000000
   fsdp_offload_params: false
   fsdp_sharding_strategy: FULL_SHARD
   # FULL_STATE_DICT (not SHARDED) so PEFT save_pretrained can extract the

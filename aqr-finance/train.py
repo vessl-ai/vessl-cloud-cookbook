@@ -257,7 +257,15 @@ def main():
     # Required for gradient checkpointing on PEFT-wrapped models (otherwise
     # the input embeddings don't propagate grad to LoRA params).
     model.enable_input_require_grads()
-    model.gradient_checkpointing_enable()
+    # Under PEFT+FSDP, gradient_checkpointing must target the unwrapped base
+    # model — calling it on the PeftModel wrapper silently no-ops because the
+    # FSDP-wrapped decoder layers live one level down (model.base_model.model).
+    # Without this, forward activations for all 40 hybrid decoder layers
+    # accumulate and OOM at first batch.
+    if hasattr(model, "base_model") and hasattr(model.base_model, "model"):
+        model.base_model.model.gradient_checkpointing_enable()
+    else:
+        model.gradient_checkpointing_enable()
 
     # Sanity-check that PEFT actually found the target modules. PEFT will
     # silently fall through (trainable ≈ 0) if a target name doesn't match

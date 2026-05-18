@@ -6,7 +6,9 @@ readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
     "accelerate>=0.34",
+    "causal-conv1d>=1.4",
     "datasets>=3.0",
+    "flash-linear-attention>=0.2",
     "huggingface_hub>=0.26",
     "kaggle>=1.6",
     "matplotlib>=3.10",
