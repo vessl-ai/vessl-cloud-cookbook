@@ -79,13 +79,12 @@ apt-get update -qq && apt-get install -y -qq git curl unzip
 mkdir -p /workspace && cd /workspace
 git clone --depth 1 --branch "${BRANCH}" "${REPO_URL}" .
 cd aqr-finance
-mkdir -p "\$HOME/.cache/aqr-finance/hf"
-# Persist HF model weights on the cache volume so cold-start jobs after the
-# first one skip the ~3-min Qwen3.5-35B-A3B-Base download (35 B params, 1026
-# safetensors shards). Object volume is mounted at \$HOME/.cache/aqr-finance.
-export HF_HOME="\$HOME/.cache/aqr-finance/hf"
-export HUGGINGFACE_HUB_CACHE="\$HF_HOME/hub"
-# expandable_segments reduces VRAM fragmentation — with a 74 GB model on a
+# Object-volume HF cache caused "no config file" errors on dry-run 10 — a
+# previous OOM'd run left a partial cache on the volume and object storage
+# doesn't guarantee atomic writes. Stick with the ephemeral default
+# (~/.cache/huggingface) until boot stabilizes; we eat a ~3-min Qwen3.5-35B
+# download per cold start until then.
+# expandable_segments reduces VRAM fragmentation — with a 74 GB model on an
 # 80 GB GPU the headroom is small enough that fragmentation alone can
 # trigger OOM mid-step. PyTorch's own OOM hint flags this in our logs.
 export PYTORCH_CUDA_ALLOC_CONF="expandable_segments:True"
