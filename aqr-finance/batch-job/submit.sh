@@ -22,7 +22,7 @@
 #                          Find with `vesslctl resource-spec list`.
 #
 # Optional env vars:
-#   AQR_IMAGE              default: pytorch/pytorch:2.4.1-cuda12.4-cudnn9-devel
+#   AQR_IMAGE              default: pytorch/pytorch:2.5.1-cuda12.4-cudnn9-devel
 #   AQR_REPO_URL           default: https://github.com/vessl-ai/vessl-cloud-cookbook.git
 #   AQR_TIMEOUT_S          default: 36000 (10h — covers a 5-9h baseline + buffer)
 #
@@ -34,7 +34,7 @@ set -euo pipefail
 
 CACHE_VOLUME="${AQR_CACHE_VOLUME:?set AQR_CACHE_VOLUME to your cache volume slug (e.g. objvol-...)}"
 RESOURCE_SPEC="${AQR_RESOURCE_SPEC:?set AQR_RESOURCE_SPEC to your 8xH100 SXM spec slug (vesslctl resource-spec list)}"
-IMAGE="${AQR_IMAGE:-pytorch/pytorch:2.4.1-cuda12.4-cudnn9-devel}"
+IMAGE="${AQR_IMAGE:-pytorch/pytorch:2.5.1-cuda12.4-cudnn9-devel}"
 REPO_URL="${AQR_REPO_URL:-https://github.com/vessl-ai/vessl-cloud-cookbook.git}"
 TIMEOUT_S="${AQR_TIMEOUT_S:-36000}"
 

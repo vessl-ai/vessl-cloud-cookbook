@@ -5,22 +5,31 @@ description = "AQR-style point-in-time financial LLM on VESSL Cloud (Qwen3.5-35B
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
-    "accelerate>=0.34",
-    "causal-conv1d>=1.4",
+    "accelerate==1.13.0",
+    "causal-conv1d==1.6.1",
     "datasets>=3.0",
-    "flash-linear-attention>=0.2",
+    "flash-linear-attention==0.4.2",
     "huggingface_hub>=0.26",
     "kaggle>=1.6",
     "matplotlib>=3.10",
     "numpy>=2.0",
     "pandas>=2.2",
-    "peft>=0.13",
+    "peft==0.18.1",
     "pyarrow>=18.0",
     "scikit-learn>=1.5",
-    "torch==2.4.1",
+    "torch==2.5.1",
     "tqdm>=4.66",
-    "transformers>=4.51",
+    "transformers==5.2.0",
 ]
+
+[tool.uv]
+# Force source build for the CUDA-extension deps. PyPI prebuilt wheels are
+# compiled against specific torch C++ ABIs; sticking to source build makes
+# wheel/ABI mismatch (the symptom from dry-runs 3-4) structurally impossible.
+# nvcc is present in the cuda12.4-cudnn9-devel image. Cold-cache compile is
+# ~5-10 min — acceptable vs another failed dry-run.
+no-binary-package = ["causal-conv1d", "flash-linear-attention"]
+no-build-isolation-package = ["causal-conv1d"]
 
 [tool.uv.sources]
 torch = [

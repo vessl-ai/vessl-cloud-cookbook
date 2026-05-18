@@ -13,7 +13,7 @@
 #                          tokenization; defaults to an a100cpu spec).
 #
 # Optional env vars (same defaults as submit.sh):
-#   AQR_IMAGE              default: pytorch/pytorch:2.4.1-cuda12.4-cudnn9-devel
+#   AQR_IMAGE              default: pytorch/pytorch:2.5.1-cuda12.4-cudnn9-devel
 #   AQR_REPO_URL           default: https://github.com/vessl-ai/vessl-cloud-cookbook.git
 #   AQR_BRANCH             default: main
 #   AQR_TARGET_TOKENS      default: 1B (passed to prepare.py)
@@ -26,7 +26,7 @@ set -euo pipefail
 CACHE_VOLUME="${AQR_CACHE_VOLUME:?set AQR_CACHE_VOLUME to your cache volume slug}"
 # CPU spec — tokenization is single-threaded I/O-bound work, GPU would idle.
 RESOURCE_SPEC="${AQR_RESOURCE_SPEC:-resourcespec-a100cpu}"
-IMAGE="${AQR_IMAGE:-pytorch/pytorch:2.4.1-cuda12.4-cudnn9-devel}"
+IMAGE="${AQR_IMAGE:-pytorch/pytorch:2.5.1-cuda12.4-cudnn9-devel}"
 REPO_URL="${AQR_REPO_URL:-https://github.com/vessl-ai/vessl-cloud-cookbook.git}"
 BRANCH="${AQR_BRANCH:-main}"
 TARGET_TOKENS="${AQR_TARGET_TOKENS:-1B}"
