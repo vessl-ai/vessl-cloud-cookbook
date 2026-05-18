@@ -56,7 +56,11 @@ WEIGHT_DECAY = 0.01
 
 LORA_R = 16
 LORA_ALPHA = 32
-LORA_DROPOUT = 0.05
+# Unsloth's MoE expert LoRA wrapper (ParamWrapper) doesn't support dropout — see
+# peft/tuners/lora/layer.py:2142. With 256 experts × 2 expert proj targets, this
+# is a hard constraint, not a regression we can live with. Setting to 0 also
+# matches Unsloth's "fast patching" path (which only kicks in at dropout=0).
+LORA_DROPOUT = 0.0
 # Hybrid LoRA target list — see plan v3.3-4 and README "Why these LoRA targets".
 # Qwen3.5-35B-A3B-Base has 30 Gated DeltaNet layers + 10 Gated Attention layers + MoE experts.
 # Targeting only q/k/v/o (the conventional attention list) hits 10 of 40 layers and produces

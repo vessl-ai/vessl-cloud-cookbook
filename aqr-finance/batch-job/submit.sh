@@ -79,7 +79,12 @@ apt-get update -qq && apt-get install -y -qq git curl unzip
 mkdir -p /workspace && cd /workspace
 git clone --depth 1 --branch "${BRANCH}" "${REPO_URL}" .
 cd aqr-finance
-mkdir -p "\$HOME/.cache/aqr-finance"
+mkdir -p "\$HOME/.cache/aqr-finance/hf"
+# Persist HF model weights on the cache volume so cold-start jobs after the
+# first one skip the ~3-min Qwen3.5-35B-A3B-Base download (35 B params, 1026
+# safetensors shards). Object volume is mounted at \$HOME/.cache/aqr-finance.
+export HF_HOME="\$HOME/.cache/aqr-finance/hf"
+export HUGGINGFACE_HUB_CACHE="\$HF_HOME/hub"
 
 # Framework layer on top of NVIDIA-tuned base stack.
 pip install --no-cache-dir --upgrade pip
