@@ -35,17 +35,32 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 # shellcheck source=./_lib.sh
 . "$SCRIPT_DIR/_lib.sh"
 
-# Auto-load Kaggle creds from ~/.kaggle/kaggle.json if env not set. This is
-# the kaggle CLI's standard location, so users who have run `kaggle init`
-# or downloaded their API token from kaggle.com/settings will already have
-# this file. We pull username + key into env vars so the vesslctl --env
-# below propagates them into the container for the JPX download.
+# Auto-load Kaggle creds. Two formats supported (kaggle.com switched API
+# token systems in 2025, so both shapes are in the wild):
+#
+#   (a) New API token: ~/.kaggle/access_token contains a single-line
+#       "KGAT_..." token. Forwarded into the container as KAGGLE_API_TOKEN.
+#       This is what the kaggle.com Settings UI now hands out.
+#
+#   (b) Legacy creds: ~/.kaggle/kaggle.json contains
+#       {"username":"...","key":"..."}. Forwarded as KAGGLE_USERNAME +
+#       KAGGLE_KEY. Still works; produced by the "Create Legacy API Key"
+#       button if the user clicks it.
+#
+# Either file is enough — newest matching value wins via env precedence.
+if [ -z "${KAGGLE_API_TOKEN:-}" ] && [ -f "$HOME/.kaggle/access_token" ]; then
+  KAGGLE_API_TOKEN="$(tr -d '[:space:]' < "$HOME/.kaggle/access_token" 2>/dev/null || true)"
+  if [ -n "$KAGGLE_API_TOKEN" ]; then
+    export KAGGLE_API_TOKEN
+    echo "prep.sh: loaded Kaggle API token from ~/.kaggle/access_token (KGAT_...)"
+  fi
+fi
 if [ -z "${KAGGLE_USERNAME:-}" ] && [ -f "$HOME/.kaggle/kaggle.json" ]; then
   KAGGLE_USERNAME="$(python3 -c 'import json,os; print(json.load(open(os.path.expanduser("~/.kaggle/kaggle.json")))["username"])' 2>/dev/null || true)"
   KAGGLE_KEY="$(python3 -c 'import json,os; print(json.load(open(os.path.expanduser("~/.kaggle/kaggle.json")))["key"])' 2>/dev/null || true)"
   if [ -n "$KAGGLE_USERNAME" ] && [ -n "$KAGGLE_KEY" ]; then
     export KAGGLE_USERNAME KAGGLE_KEY
-    echo "prep.sh: loaded Kaggle creds from ~/.kaggle/kaggle.json (user: $KAGGLE_USERNAME)"
+    echo "prep.sh: loaded legacy Kaggle creds from ~/.kaggle/kaggle.json (user: $KAGGLE_USERNAME)"
   fi
 fi
 
@@ -63,14 +78,30 @@ mkdir -p "\$HOME/.cache/aqr-finance"
 uv run prepare.py --target_tokens "${TARGET_TOKENS}"
 
 # Optional: Kaggle JPX dataset for eval.py. Skips silently if no creds.
-mkdir -p "\$HOME/.cache/aqr-finance/jpx"
+# Container-side: materialise kaggle.json from whichever creds env var
+# made it through, so the kaggle CLI finds them.
+mkdir -p "\$HOME/.cache/aqr-finance/jpx" "\$HOME/.kaggle"
 if [ -f "\$HOME/.cache/aqr-finance/jpx/stock_prices.csv" ]; then
   echo "prep.sh: JPX already cached, skipping"
-elif [ -f "\$HOME/.kaggle/kaggle.json" ] || [ -n "\${KAGGLE_USERNAME:-}" ]; then
-  echo "prep.sh: kaggle creds detected, downloading JPX dataset"
+elif [ -n "\${KAGGLE_API_TOKEN:-}" ]; then
+  echo "prep.sh: KAGGLE_API_TOKEN detected, writing ~/.kaggle/access_token"
+  printf '%s' "\$KAGGLE_API_TOKEN" > "\$HOME/.kaggle/access_token"
+  chmod 600 "\$HOME/.kaggle/access_token"
   cd "\$HOME/.cache/aqr-finance/jpx"
   uv run --with kaggle kaggle competitions download -c jpx-tokyo-stock-exchange-prediction || \
-    echo "prep.sh: kaggle download failed — eval.py will need stock_prices.csv pre-staged"
+    echo "prep.sh: kaggle download failed (new-token path) — eval.py will need stock_prices.csv pre-staged"
+  for zf in *.zip; do [ -e "\$zf" ] && unzip -q "\$zf"; done
+  if [ -f train_files/stock_prices.csv ]; then
+    mv train_files/stock_prices.csv .
+  fi
+  cd - > /dev/null
+elif [ -n "\${KAGGLE_USERNAME:-}" ] && [ -n "\${KAGGLE_KEY:-}" ]; then
+  echo "prep.sh: legacy KAGGLE_USERNAME/KEY detected, writing ~/.kaggle/kaggle.json"
+  printf '{"username":"%s","key":"%s"}' "\$KAGGLE_USERNAME" "\$KAGGLE_KEY" > "\$HOME/.kaggle/kaggle.json"
+  chmod 600 "\$HOME/.kaggle/kaggle.json"
+  cd "\$HOME/.cache/aqr-finance/jpx"
+  uv run --with kaggle kaggle competitions download -c jpx-tokyo-stock-exchange-prediction || \
+    echo "prep.sh: kaggle download failed (legacy path) — eval.py will need stock_prices.csv pre-staged"
   for zf in *.zip; do [ -e "\$zf" ] && unzip -q "\$zf"; done
   if [ -f train_files/stock_prices.csv ]; then
     mv train_files/stock_prices.csv .
@@ -96,6 +127,7 @@ vesslctl job create \
   -r "$RESOURCE_SPEC" \
   -i "$IMAGE" \
   --object-volume "${CACHE_VOLUME}:/root/.cache/aqr-finance" \
+  --env "KAGGLE_API_TOKEN=${KAGGLE_API_TOKEN:-}" \
   --env "KAGGLE_USERNAME=${KAGGLE_USERNAME:-}" \
   --env "KAGGLE_KEY=${KAGGLE_KEY:-}" \
   --tag aqr-finance \
