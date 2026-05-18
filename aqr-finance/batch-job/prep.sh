@@ -35,6 +35,20 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 # shellcheck source=./_lib.sh
 . "$SCRIPT_DIR/_lib.sh"
 
+# Auto-load Kaggle creds from ~/.kaggle/kaggle.json if env not set. This is
+# the kaggle CLI's standard location, so users who have run `kaggle init`
+# or downloaded their API token from kaggle.com/settings will already have
+# this file. We pull username + key into env vars so the vesslctl --env
+# below propagates them into the container for the JPX download.
+if [ -z "${KAGGLE_USERNAME:-}" ] && [ -f "$HOME/.kaggle/kaggle.json" ]; then
+  KAGGLE_USERNAME="$(python3 -c 'import json,os; print(json.load(open(os.path.expanduser("~/.kaggle/kaggle.json")))["username"])' 2>/dev/null || true)"
+  KAGGLE_KEY="$(python3 -c 'import json,os; print(json.load(open(os.path.expanduser("~/.kaggle/kaggle.json")))["key"])' 2>/dev/null || true)"
+  if [ -n "$KAGGLE_USERNAME" ] && [ -n "$KAGGLE_KEY" ]; then
+    export KAGGLE_USERNAME KAGGLE_KEY
+    echo "prep.sh: loaded Kaggle creds from ~/.kaggle/kaggle.json (user: $KAGGLE_USERNAME)"
+  fi
+fi
+
 JOB_NAME="aqr-finance-prep-$(date +%s)"
 
 JOB_CMD=$(cat <<EOF
