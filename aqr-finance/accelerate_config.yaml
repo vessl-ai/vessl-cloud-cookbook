@@ -1,0 +1,31 @@
+compute_environment: LOCAL_MACHINE
+distributed_type: FSDP
+downcast_bf16: 'no'
+fsdp_config:
+  # SIZE_BASED_WRAP with a 1M-param floor wraps every meaningful layer
+  # (incl. MoE experts) without us having to guess the decoder layer
+  # class name. If you later confirm the actual decoder class (e.g.
+  # Qwen3MoeDecoderLayer or Qwen3HybridDecoderLayer), switch to
+  # TRANSFORMER_BASED_WRAP for slightly better overlap.
+  fsdp_auto_wrap_policy: SIZE_BASED_WRAP
+  fsdp_backward_prefetch: BACKWARD_PRE
+  fsdp_cpu_ram_efficient_loading: true
+  fsdp_min_num_params: 1000000
+  fsdp_offload_params: false
+  fsdp_sharding_strategy: FULL_SHARD
+  # FULL_STATE_DICT (not SHARDED) so PEFT save_pretrained can extract the
+  # LoRA adapter weights at the end of train.py. SHARDED is incompatible
+  # with PEFT's save path (each rank holds a partial state dict).
+  fsdp_state_dict_type: FULL_STATE_DICT
+  fsdp_sync_module_states: true
+  fsdp_use_orig_params: true
+machine_rank: 0
+main_training_function: main
+mixed_precision: bf16
+num_machines: 1
+num_processes: 8
+rdzv_backend: static
+same_network: true
+tpu_use_cluster: false
+tpu_use_sudo: false
+use_cpu: false
