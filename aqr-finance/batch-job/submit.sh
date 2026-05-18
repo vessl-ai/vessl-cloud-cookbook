@@ -85,6 +85,10 @@ mkdir -p "\$HOME/.cache/aqr-finance/hf"
 # safetensors shards). Object volume is mounted at \$HOME/.cache/aqr-finance.
 export HF_HOME="\$HOME/.cache/aqr-finance/hf"
 export HUGGINGFACE_HUB_CACHE="\$HF_HOME/hub"
+# expandable_segments reduces VRAM fragmentation — with a 74 GB model on a
+# 80 GB GPU the headroom is small enough that fragmentation alone can
+# trigger OOM mid-step. PyTorch's own OOM hint flags this in our logs.
+export PYTORCH_CUDA_ALLOC_CONF="expandable_segments:True"
 
 # Framework layer on top of NVIDIA-tuned base stack.
 pip install --no-cache-dir --upgrade pip

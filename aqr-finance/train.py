@@ -39,7 +39,13 @@ DATA_DIR = CACHE_DIR / "data"
 ADAPTER_DIR = CACHE_DIR / "adapter"
 ADAPTER_DIR.mkdir(parents=True, exist_ok=True)
 
-MAX_SEQ_LEN = 4096
+# 4096 OOMs on a single H100 80 GB: 35 B bf16 base (~74 GB) + Qwen3.5's 248 K-vocab
+# logits buffer (seq × 248 K × 2 B) + activations exceed 80 GB by 1-2 GB. The
+# DGX Spark forum's bf16 LoRA success ran on GB10 (128 GB unified memory) where
+# the budget held. 2048 halves both the logits buffer and the activation
+# footprint while keeping a sensible CPT context. Multi-GPU FSDP would let us
+# return to 4096 but the OSS path is single-GPU first.
+MAX_SEQ_LEN = 2048
 PER_DEVICE_BATCH = 1
 GRAD_ACCUM_STEPS = 8
 # Steps × tokens-per-step ≈ target tokens. With 4096 seq, 1 micro × 8 accum × 8 GPU = 256 K tokens/step.
