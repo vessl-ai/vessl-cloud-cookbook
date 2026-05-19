@@ -126,7 +126,7 @@ fi
 # buffers (~3.6 GB inherent overhead per GPU) leaves <30 MB margin on
 # H100 80 GB. accelerate_config.yaml is retained in-tree for reference
 # but unused. Cookbook target = single H100 80 GB, audience-friendly
-# (one card, $2.39/hr, ~22 h, ~$53).
+# (one card, ~22 h, single-digit-dollar-per-hour).
 python train.py
 python eval.py
 EOF
