@@ -88,6 +88,13 @@ cd aqr-finance
 # 80 GB GPU the headroom is small enough that fragmentation alone can
 # trigger OOM mid-step. PyTorch's own OOM hint flags this in our logs.
 export PYTORCH_CUDA_ALLOC_CONF="expandable_segments:True"
+# NCCL_P2P_DISABLE removes the cross-GPU peer-access buffers (~522 MB per
+# rank per cross-GPU pair, ~3.6 GB total per GPU in 8-way DDP). Dry-run 15
+# OOMed on forward-pass MoE permutation because those buffers + the 74 GB
+# bf16 base squeezed margin to <30 MB. Tradeoff: ~20% throughput loss
+# (NCCL falls back to host-staged transfers), which we eat to fit 35 B
+# DDP on 80 GB H100 ceiling.
+export NCCL_P2P_DISABLE=1
 
 # Framework layer on top of NVIDIA-tuned base stack.
 pip install --no-cache-dir --upgrade pip
