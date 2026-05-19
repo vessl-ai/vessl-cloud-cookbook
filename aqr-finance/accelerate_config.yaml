@@ -1,24 +1,10 @@
 compute_environment: LOCAL_MACHINE
-distributed_type: FSDP
+# DDP (data-parallel), not FSDP. Unsloth's OSS path is single-GPU optimized;
+# the multi-GPU enablement is plain DDP: each rank loads its own full model
+# copy and gradients sync via NCCL all-reduce. Works once device_map is
+# pinned per LOCAL_RANK in train.py — see unslothai/unsloth#3942.
+distributed_type: MULTI_GPU
 downcast_bf16: 'no'
-fsdp_config:
-  # TRANSFORMER_BASED_WRAP shards at decoder-layer granularity so each
-  # unshard at forward time touches one 40-layer slice (~875 MB) instead
-  # of pulling the whole 35B model onto a single GPU. Verified class
-  # name via transformers/models/qwen3_5_moe/modeling_qwen3_5_moe.py
-  # _no_split_modules (line 3570) and our dry-run stack trace at line 126.
-  fsdp_auto_wrap_policy: TRANSFORMER_BASED_WRAP
-  fsdp_transformer_layer_cls_to_wrap: Qwen3_5MoeDecoderLayer
-  fsdp_backward_prefetch: BACKWARD_PRE
-  fsdp_cpu_ram_efficient_loading: true
-  fsdp_offload_params: false
-  fsdp_sharding_strategy: FULL_SHARD
-  # FULL_STATE_DICT (not SHARDED) so PEFT save_pretrained can extract the
-  # LoRA adapter weights at the end of train.py. SHARDED is incompatible
-  # with PEFT's save path (each rank holds a partial state dict).
-  fsdp_state_dict_type: FULL_STATE_DICT
-  fsdp_sync_module_states: true
-  fsdp_use_orig_params: true
 machine_rank: 0
 main_training_function: main
 mixed_precision: bf16

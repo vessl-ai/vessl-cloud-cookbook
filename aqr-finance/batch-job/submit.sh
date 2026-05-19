@@ -113,20 +113,28 @@ if [ ! -f "\$HOME/.cache/aqr-finance/data/manifest.json" ]; then
   python prepare.py
 fi
 
-# Single-process train — Unsloth's OSS path is single-GPU optimized; multi-GPU
-# DDP comes later once boot is verified. accelerate_config.yaml is retained
-# in-tree for the multi-GPU follow-up but unused here.
-python train.py
+# Multi-GPU DDP via accelerate launch. With device_map={'':local_rank} pinned
+# in train.py (unsloth#3942 fix), each rank loads its own model copy on its
+# own GPU and gradients sync via NCCL all-reduce. 8x effective batch =
+# 8x fewer steps. accelerate_config.yaml carries distributed_type=MULTI_GPU.
+accelerate launch --config_file accelerate_config.yaml train.py
 python eval.py
 EOF
 )
 
-echo "submit.sh: creating job $JOB_NAME on $RESOURCE_SPEC"
+# Forward AQR_MAX_STEPS into the container so dry-runs can override the
+# train.py default. Last burn happened because the var was set in the
+# local shell only — vesslctl doesn't inherit env, has to be passed via
+# --env. Default value keeps the flag well-formed regardless.
+JOB_MAX_STEPS="${AQR_MAX_STEPS:-3815}"
+
+echo "submit.sh: creating job $JOB_NAME on $RESOURCE_SPEC (max_steps=$JOB_MAX_STEPS)"
 vesslctl job create \
   -n "$JOB_NAME" \
   -r "$RESOURCE_SPEC" \
   -i "$IMAGE" \
   --object-volume "${CACHE_VOLUME}:/root/.cache/aqr-finance" \
+  --env "AQR_MAX_STEPS=${JOB_MAX_STEPS}" \
   --tag aqr-finance \
   --tag "aqr-${TAG_SAFE}" \
   --cmd "$JOB_CMD" >&2
