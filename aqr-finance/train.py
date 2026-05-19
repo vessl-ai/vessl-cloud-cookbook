@@ -186,18 +186,18 @@ def main() -> None:
 
     print(f"train.py: loading base {BASE_MODEL} (bf16, no quant)", flush=True)
     t_load = time.time()
-    # device_map={'':local_rank} is the fix for unslothai/unsloth#3942:
-    # device_map='auto' defaults every DDP rank to GPU 0 → OOM piling 8 copies
-    # of a 74 GB model on one device. Pinning by LOCAL_RANK puts each process
-    # on its own GPU. Set via accelerate launch / torchrun (LOCAL_RANK is
-    # injected automatically) — single-process runs see LOCAL_RANK=0 by default.
-    local_rank = int(os.environ.get("LOCAL_RANK", "0"))
+    # device_map='balanced' (pipeline / model-parallel): splits the 35 B base
+    # across all visible GPUs layer-by-layer. Memory math: ~74 GB / 8 GPU =
+    # ~9 GB per device, well under the 80 GB ceiling — escape from the DDP
+    # cross-GPU NCCL overhead trap. Tradeoff: single sequential pipeline so
+    # throughput per step doesn't multiply, just memory fits. Single process
+    # (no accelerate launch / torchrun).
     model, tokenizer = FastModel.from_pretrained(
         model_name=BASE_MODEL,
         max_seq_length=MAX_SEQ_LEN,
         load_in_4bit=False,
         dtype=torch.bfloat16,
-        device_map={"": local_rank},
+        device_map="balanced",
     )
     print(f"train.py: base loaded in {time.time() - t_load:.0f}s", flush=True)
 
