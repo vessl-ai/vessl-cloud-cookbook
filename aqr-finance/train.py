@@ -26,6 +26,17 @@ from typing import Iterator
 
 import numpy as np
 import torch
+
+# Pin the CUDA default device per LOCAL_RANK before importing unsloth/datasets.
+# Without this, every rank's NCCL/CUDA bring-up grabs ~790 MB on GPU 0 (the
+# default device), and with 8 ranks that's 5+ GB sitting on rank 0's GPU on
+# top of its own 74 GB model — DDP Reducer init then OOMs trying to allocate
+# a 56 MB workspace. Setting the device early forces each rank's CUDA context
+# onto its own GPU.
+_LOCAL_RANK = int(os.environ.get("LOCAL_RANK", "0"))
+if torch.cuda.is_available():
+    torch.cuda.set_device(_LOCAL_RANK)
+
 from datasets import IterableDataset as HFIterableDataset
 from transformers import TrainerCallback
 from unsloth import FastModel, UnslothTrainer, UnslothTrainingArguments
@@ -75,11 +86,17 @@ LORA_DROPOUT = 0.0
 # For continued pretraining specifically, we also expose lm_head and embed_tokens at
 # embedding_learning_rate so the model can shift its output distribution toward the filtered
 # slice without overwhelming the frozen base.
+# NOTE: lm_head + embed_tokens are the Unsloth CPT pattern but together with
+# the 256 MoE experts they pushed trainable to 945 M params, which exceeded
+# the per-GPU memory budget under 8-way DDP (rank 0 OOM'd at DDP Reducer init
+# in dry-run 14). Dropped both — trainable drops to ~65 M, the cookbook's
+# core LoRA-target contribution (in_proj_qkv/z + out_proj on DeltaNet, q/k/v/o
+# on Gated Attention, MoE expert projections) is intact, and we keep multi-GPU
+# DDP fitting on 8×H100. Single-GPU runs can re-enable lm_head+embed_tokens.
 LORA_TARGET_MODULES = [
     "q_proj", "k_proj", "v_proj", "o_proj",
     "in_proj_qkv", "in_proj_z", "out_proj",
     "gate_proj", "up_proj", "down_proj",
-    "lm_head", "embed_tokens",
 ]
 
 NAN_WATCHDOG_MINUTES = 30
