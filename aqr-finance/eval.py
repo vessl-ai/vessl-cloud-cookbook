@@ -111,9 +111,15 @@ def select_subset(df: pd.DataFrame, max_stocks: int, dates_per_stock: int) -> pd
         idx = rng.choice(len(g), size=dates_per_stock, replace=False)
         return g.iloc[idx]
 
-    out = sub.groupby("SecuritiesCode", group_keys=False).apply(sample_group)
-    out = out.reset_index(drop=True)
-    return out
+    # Manual concat instead of groupby.apply — pandas 3.0 made
+    # include_groups=False the default for DataFrameGroupBy.apply, which
+    # drops the SecuritiesCode column from the result and downstream
+    # df['SecuritiesCode'] lookups KeyError. Manual loop sidesteps the
+    # version-sensitive behavior entirely.
+    parts = [sample_group(g) for _, g in sub.groupby("SecuritiesCode")]
+    if not parts:
+        return sub.iloc[:0].copy()
+    return pd.concat(parts, ignore_index=True)
 
 
 def build_prompt(row) -> str:
