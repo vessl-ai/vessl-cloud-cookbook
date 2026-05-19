@@ -120,11 +120,14 @@ if [ ! -f "\$HOME/.cache/aqr-finance/data/manifest.json" ]; then
   python prepare.py
 fi
 
-# Multi-GPU DDP via accelerate launch. With device_map={'':local_rank} pinned
-# in train.py (unsloth#3942 fix), each rank loads its own model copy on its
-# own GPU and gradients sync via NCCL all-reduce. 8x effective batch =
-# 8x fewer steps. accelerate_config.yaml carries distributed_type=MULTI_GPU.
-accelerate launch --config_file accelerate_config.yaml train.py
+# Single-process train. We retried multi-GPU DDP across dry-runs 14-16
+# (set_device per LOCAL_RANK fix + NCCL_P2P_DISABLE) and every attempt
+# OOM'd because an 8-way DDP of a 35 B bf16 base + NCCL communicator
+# buffers (~3.6 GB inherent overhead per GPU) leaves <30 MB margin on
+# H100 80 GB. accelerate_config.yaml is retained in-tree for reference
+# but unused. Cookbook target = single H100 80 GB, audience-friendly
+# (one card, $2.39/hr, ~22 h, ~$53).
+python train.py
 python eval.py
 EOF
 )

@@ -86,17 +86,20 @@ LORA_DROPOUT = 0.0
 # For continued pretraining specifically, we also expose lm_head and embed_tokens at
 # embedding_learning_rate so the model can shift its output distribution toward the filtered
 # slice without overwhelming the frozen base.
-# NOTE: lm_head + embed_tokens are the Unsloth CPT pattern but together with
-# the 256 MoE experts they pushed trainable to 945 M params, which exceeded
-# the per-GPU memory budget under 8-way DDP (rank 0 OOM'd at DDP Reducer init
-# in dry-run 14). Dropped both — trainable drops to ~65 M, the cookbook's
-# core LoRA-target contribution (in_proj_qkv/z + out_proj on DeltaNet, q/k/v/o
-# on Gated Attention, MoE expert projections) is intact, and we keep multi-GPU
-# DDP fitting on 8×H100. Single-GPU runs can re-enable lm_head+embed_tokens.
+# lm_head + embed_tokens follow Unsloth's CPT pattern (smaller LR via
+# embedding_learning_rate keeps the pretrained vocabulary geometry stable
+# while attention/MLP shift to the new domain). On a single H100 80 GB this
+# fits — dry-run 13 trained the full 945 M trainable footprint to 47 %
+# (NaN-free, loss 2.31 → 2.20) before being killed by an unrelated eval-step
+# OOM that's already addressed via eval_strategy="no". The multi-GPU DDP
+# attempt dropped these to make room for cross-GPU NCCL buffers, but DDP
+# of a 35 B base on 8×H100 80 GB is a fundamental ceiling problem we
+# don't beat by trimming targets — see commit history dry-run 14-16.
 LORA_TARGET_MODULES = [
     "q_proj", "k_proj", "v_proj", "o_proj",
     "in_proj_qkv", "in_proj_z", "out_proj",
     "gate_proj", "up_proj", "down_proj",
+    "lm_head", "embed_tokens",
 ]
 
 NAN_WATCHDOG_MINUTES = 30
