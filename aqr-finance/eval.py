@@ -428,19 +428,24 @@ def main():
     print(f"base_r2_leakage_on:    {base_scores['r2_on']:.4f}", flush=True)
     print(f"base_leakage_premium:  {base_premium:.4f}", flush=True)
     print(f"premium_reduction:     {premium_reduction:.4f}", flush=True)
+    # Bootstrap median (p50) reported alongside the percentile CI: the
+    # clustered bootstrap of an R²-difference is right-skewed, so the
+    # full-data plug-in point estimate can sit near (or just below) the 2.5th
+    # percentile. The median is the self-consistent central estimate — it
+    # always lies inside [p2.5, p97.5] — so the cookbook leads with it.
     print(
         f"premium_reduction_ci95: [{cis['premium_reduction']['p2.5']:.4f}, "
-        f"{cis['premium_reduction']['p97.5']:.4f}]",
+        f"{cis['premium_reduction']['p97.5']:.4f}] (median {cis['premium_reduction']['p50']:.4f})",
         flush=True,
     )
     print(
         f"base_premium_ci95:     [{cis['base_premium']['p2.5']:.4f}, "
-        f"{cis['base_premium']['p97.5']:.4f}]",
+        f"{cis['base_premium']['p97.5']:.4f}] (median {cis['base_premium']['p50']:.4f})",
         flush=True,
     )
     print(
         f"adapter_premium_ci95:  [{cis['adapter_premium']['p2.5']:.4f}, "
-        f"{cis['adapter_premium']['p97.5']:.4f}]",
+        f"{cis['adapter_premium']['p97.5']:.4f}] (median {cis['adapter_premium']['p50']:.4f})",
         flush=True,
     )
     print(f"n_bootstrap_completed: {cis['n_bootstrap_completed']}", flush=True)
