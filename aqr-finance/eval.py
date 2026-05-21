@@ -18,9 +18,9 @@ What this script does:
   5. Concatenate LLM embedding with the numeric features, fit Ridge
      regression, and compute four R^2 scores:
        base_r2_off    — base model, chronological split (train <= 2020-12-31, test >= 2021-01-01)
-       base_r2_on     — base model, random 5-fold CV mean
+       base_r2_on     — base model, stock-disjoint GroupKFold CV mean
        adapter_r2_off — adapter, chronological split
-       adapter_r2_on  — adapter, random 5-fold CV mean
+       adapter_r2_on  — adapter, stock-disjoint GroupKFold CV mean
   6. The two leakage premiums:
        base_premium    = base_r2_on - base_r2_off
        adapter_premium = adapter_r2_on - adapter_r2_off
@@ -46,7 +46,7 @@ import torch
 from peft import PeftModel
 from sklearn.linear_model import Ridge
 from sklearn.metrics import r2_score
-from sklearn.model_selection import KFold
+from sklearn.model_selection import GroupKFold
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
 warnings.filterwarnings("ignore", category=UserWarning, module="sklearn")
@@ -61,12 +61,13 @@ JPX_CSV = JPX_DIR / "stock_prices.csv"
 CHRONO_TRAIN_END = "2020-12-31"
 CHRONO_TEST_START = "2021-01-01"
 
-MAX_STOCKS = 200             # subset for the eval; raise after sanity passes
-DATES_PER_STOCK = 30         # (stock, date) pairs sampled per stock => ~6,000 rows
+MAX_STOCKS = int(os.environ.get("AQR_MAX_STOCKS", "1000"))             # subset for the eval; raise after sanity passes
+DATES_PER_STOCK = int(os.environ.get("AQR_DATES_PER_STOCK", "30"))         # (stock, date) pairs sampled per stock => ~6,000 rows
 SEQ_LEN = 256
 BATCH_SIZE = 16              # forward batch for embedding; 6000 rows / 16 ≈ 375 batches
 RIDGE_ALPHA = 1.0
 KFOLD_N = 5
+N_BOOTSTRAP = int(os.environ.get("AQR_N_BOOTSTRAP", "200"))   # clustered-bootstrap iterations for the premium CIs
 
 NUMERIC_FEATURE_COLS = ["log_close", "log_volume", "ret_5d", "ret_30d", "vol_20d"]
 
@@ -187,8 +188,17 @@ def llm_embeddings(model, tokenizer, prompts):
     return np.stack(embs, axis=0)
 
 
-def fit_and_score(X: np.ndarray, y: np.ndarray, dates: pd.Series) -> dict:
-    """Return r2_off (chronological), r2_on (random 5-fold), train/test sizes."""
+def fit_and_score(X: np.ndarray, y: np.ndarray, dates: pd.Series, groups: pd.Series) -> dict:
+    """Return r2_off (chronological), r2_on (stock-disjoint GroupKFold), sizes.
+
+    r2_off  — chronological split (train <= 2020-12-31, test >= 2021-01-01):
+              the honest, no-leakage estimate of out-of-sample skill.
+    r2_on   — GroupKFold on SecuritiesCode so a stock never lands in both
+              train and test. A plain shuffle KFold lets the SAME stock sit on
+              both sides, inflating r2_on via a memorized stock fixed effect
+              rather than genuine future-reading. GroupKFold strips that
+              shortcut, leaving the temporal-leakage component we want.
+    """
     mask_train = dates <= pd.Timestamp(CHRONO_TRAIN_END)
     mask_test = dates >= pd.Timestamp(CHRONO_TEST_START)
     Xtr, ytr = X[mask_train.values], y[mask_train.values]
@@ -200,9 +210,9 @@ def fit_and_score(X: np.ndarray, y: np.ndarray, dates: pd.Series) -> dict:
     reg_off = Ridge(alpha=RIDGE_ALPHA).fit(Xtr, ytr)
     r2_off = r2_score(yte, reg_off.predict(Xte))
 
-    kf = KFold(n_splits=KFOLD_N, shuffle=True, random_state=42)
+    gkf = GroupKFold(n_splits=KFOLD_N)
     r2s = []
-    for tr_idx, te_idx in kf.split(X):
+    for tr_idx, te_idx in gkf.split(X, y, groups=groups.values):
         reg_on = Ridge(alpha=RIDGE_ALPHA).fit(X[tr_idx], y[tr_idx])
         r2s.append(r2_score(y[te_idx], reg_on.predict(X[te_idx])))
     r2_on = float(np.mean(r2s))
@@ -213,6 +223,74 @@ def fit_and_score(X: np.ndarray, y: np.ndarray, dates: pd.Series) -> dict:
         "n_train": len(Xtr),
         "n_test": len(Xte),
         "n_total": len(X),
+    }
+
+
+def _premium(scores: dict) -> float:
+    return scores["r2_on"] - scores["r2_off"]
+
+
+def bootstrap_premium_ci(
+    X_base: np.ndarray,
+    X_adapter: np.ndarray,
+    y: np.ndarray,
+    dates: pd.Series,
+    groups: pd.Series,
+    n_bootstrap: int,
+) -> dict:
+    """Clustered bootstrap: resample whole stocks (not rows) with replacement.
+
+    Each draw rebuilds a panel of the same number of stocks, refits the
+    chronological + GroupKFold Ridge for both base and adapter, and records
+    base_premium, adapter_premium, and premium_reduction. Resampling stocks
+    (clusters) rather than naive rows keeps the within-stock date correlation
+    intact, so the 95% interval is honest under the panel structure. A stock
+    drawn twice becomes two distinct clusters (synthetic group ids).
+    """
+    uniq = np.array(sorted(pd.unique(groups.values)))
+    by_stock = {s: np.where(groups.values == s)[0] for s in uniq}
+    rng = np.random.default_rng(123)
+    reductions, base_ps, adapter_ps = [], [], []
+    for b in range(n_bootstrap):
+        pick = rng.choice(uniq, size=len(uniq), replace=True)
+        idx = np.concatenate([by_stock[s] for s in pick])
+        synth = np.concatenate(
+            [np.full(len(by_stock[s]), i, dtype=np.int64) for i, s in enumerate(pick)]
+        )
+        d = pd.Series(dates.values[idx])
+        g = pd.Series(synth)
+        try:
+            bs = fit_and_score(X_base[idx], y[idx], d, g)
+            asc = fit_and_score(X_adapter[idx], y[idx], d, g)
+        except (RuntimeError, ValueError):
+            continue
+        bp, ap = _premium(bs), _premium(asc)
+        base_ps.append(bp)
+        adapter_ps.append(ap)
+        reductions.append(bp - ap)
+        if (b + 1) % 25 == 0:
+            print(
+                f"eval.py: bootstrap {b + 1}/{n_bootstrap} (kept {len(reductions)})",
+                flush=True,
+            )
+
+    def ci(vals: list) -> dict:
+        a = np.asarray(vals, dtype=float)
+        if a.size == 0:
+            return {"p2.5": float("nan"), "p50": float("nan"),
+                    "p97.5": float("nan"), "std": float("nan")}
+        return {
+            "p2.5": float(np.percentile(a, 2.5)),
+            "p50": float(np.percentile(a, 50)),
+            "p97.5": float(np.percentile(a, 97.5)),
+            "std": float(a.std(ddof=1)) if a.size > 1 else 0.0,
+        }
+
+    return {
+        "premium_reduction": ci(reductions),
+        "base_premium": ci(base_ps),
+        "adapter_premium": ci(adapter_ps),
+        "n_bootstrap_completed": len(reductions),
     }
 
 
@@ -255,6 +333,7 @@ def main():
     X_num = df[NUMERIC_FEATURE_COLS].values
     y = df["Target"].values
     dates = df["Date"].reset_index(drop=True)
+    groups = df["SecuritiesCode"].reset_index(drop=True)
 
     # Tokenizer (shared between base + adapter).
     tokenizer = AutoTokenizer.from_pretrained(BASE_MODEL, trust_remote_code=True)
@@ -290,7 +369,7 @@ def main():
 
     # Concatenate LLM embedding with numeric features for the regression.
     X_base = np.concatenate([base_embs, X_num], axis=1)
-    base_scores = fit_and_score(X_base, y, dates)
+    base_scores = fit_and_score(X_base, y, dates, groups)
     print(
         f"eval.py: base r2_off = {base_scores['r2_off']:.4f}, "
         f"r2_on = {base_scores['r2_on']:.4f}",
@@ -299,7 +378,7 @@ def main():
 
     if adapter_embs is not None:
         X_adapter = np.concatenate([adapter_embs, X_num], axis=1)
-        adapter_scores = fit_and_score(X_adapter, y, dates)
+        adapter_scores = fit_and_score(X_adapter, y, dates, groups)
         print(
             f"eval.py: adapter r2_off = {adapter_scores['r2_off']:.4f}, "
             f"r2_on = {adapter_scores['r2_on']:.4f}",
@@ -312,6 +391,26 @@ def main():
     adapter_premium = adapter_scores["r2_on"] - adapter_scores["r2_off"]
     premium_reduction = base_premium - adapter_premium
 
+    # Clustered-bootstrap CIs (resample stocks). Only meaningful when both
+    # base and adapter embeddings exist.
+    if adapter_embs is not None:
+        print(
+            f"eval.py: clustered bootstrap ({N_BOOTSTRAP} draws over "
+            f"{groups.nunique()} stocks) — the slow part",
+            flush=True,
+        )
+        tb = time.time()
+        cis = bootstrap_premium_ci(X_base, X_adapter, y, dates, groups, N_BOOTSTRAP)
+        print(f"eval.py: bootstrap done in {time.time() - tb:.0f}s", flush=True)
+    else:
+        nan_ci = {"p2.5": float("nan"), "p97.5": float("nan")}
+        cis = {
+            "premium_reduction": nan_ci,
+            "base_premium": nan_ci,
+            "adapter_premium": nan_ci,
+            "n_bootstrap_completed": 0,
+        }
+
     # Summary (keys must match batch-job/wait-jobs.sh grep pattern).
     # Top-level r2_leakage_* keys mirror adapter scores so the cookbook's
     # "real metric" sits at the top of the block; base scores follow.
@@ -323,10 +422,27 @@ def main():
     print(f"base_r2_leakage_on:    {base_scores['r2_on']:.4f}", flush=True)
     print(f"base_leakage_premium:  {base_premium:.4f}", flush=True)
     print(f"premium_reduction:     {premium_reduction:.4f}", flush=True)
+    print(
+        f"premium_reduction_ci95: [{cis['premium_reduction']['p2.5']:.4f}, "
+        f"{cis['premium_reduction']['p97.5']:.4f}]",
+        flush=True,
+    )
+    print(
+        f"base_premium_ci95:     [{cis['base_premium']['p2.5']:.4f}, "
+        f"{cis['base_premium']['p97.5']:.4f}]",
+        flush=True,
+    )
+    print(
+        f"adapter_premium_ci95:  [{cis['adapter_premium']['p2.5']:.4f}, "
+        f"{cis['adapter_premium']['p97.5']:.4f}]",
+        flush=True,
+    )
+    print(f"n_bootstrap_completed: {cis['n_bootstrap_completed']}", flush=True)
     print(f"n_test_samples:        {base_scores['n_test']}", flush=True)
     print(f"n_total_samples:       {base_scores['n_total']}", flush=True)
     print(f"n_unique_stocks:       {df['SecuritiesCode'].nunique()}", flush=True)
     print(f"dates_per_stock:       {DATES_PER_STOCK}", flush=True)
+    print("eval_methodology:      GroupKFold(stock-disjoint)+clustered-bootstrap", flush=True)
     print(f"eval_seconds:          {time.time() - t0:.1f}", flush=True)
     print("---", flush=True)
 
