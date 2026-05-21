@@ -245,7 +245,8 @@ def bootstrap_premium_ci(
     base_premium, adapter_premium, and premium_reduction. Resampling stocks
     (clusters) rather than naive rows keeps the within-stock date correlation
     intact, so the 95% interval is honest under the panel structure. A stock
-    drawn twice becomes two distinct clusters (synthetic group ids).
+    drawn more than once keeps all its rows in a single cluster (grouped by
+    original stock id) so GroupKFold never splits identical rows across folds.
     """
     uniq = np.array(sorted(pd.unique(groups.values)))
     by_stock = {s: np.where(groups.values == s)[0] for s in uniq}
@@ -254,11 +255,16 @@ def bootstrap_premium_ci(
     for b in range(n_bootstrap):
         pick = rng.choice(uniq, size=len(uniq), replace=True)
         idx = np.concatenate([by_stock[s] for s in pick])
-        synth = np.concatenate(
-            [np.full(len(by_stock[s]), i, dtype=np.int64) for i, s in enumerate(pick)]
+        # Group by the ORIGINAL stock id so a stock drawn more than once keeps
+        # all its (identical) rows together in one GroupKFold fold. Distinct
+        # per-draw ids would let duplicated rows land on opposite sides of a
+        # fold — the model would test on rows it trained on, inflating r2_on
+        # and biasing the premium upward.
+        g_labels = np.concatenate(
+            [np.full(len(by_stock[s]), s, dtype=np.int64) for s in pick]
         )
         d = pd.Series(dates.values[idx])
-        g = pd.Series(synth)
+        g = pd.Series(g_labels)
         try:
             bs = fit_and_score(X_base[idx], y[idx], d, g)
             asc = fit_and_score(X_adapter[idx], y[idx], d, g)
