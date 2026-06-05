@@ -65,12 +65,7 @@ statistically significant**.
 One-time data prep (point-in-time FineWeb JSONL) is ~1 h on CPU (~$19),
 amortized across reruns because the JSONL persists on the volume.
 
-> **⚠️ The $329 mistake.** A first attempt at this run forgot the
-> `--object-volume` flag. The job wrote its checkpoint to **ephemeral pod
-> storage**, which was lost on pod terminate — ~$329 of compute gone with
-> nothing to evaluate. The `--object-volume` mount is a hard prerequisite; the
-> submit script keeps it and `volume_inspect_submit.sh` exists to confirm the
-> checkpoint actually landed on the persistent volume.
+> **⚠️ `--object-volume` is a hard prerequisite.** Without it the job writes its checkpoint to **ephemeral pod storage**, which is lost on pod terminate — leaving nothing to evaluate. The submit script keeps the flag, and `volume_inspect_submit.sh` confirms the checkpoint actually landed on the persistent volume.
 
 Prices as of the measured run.
 
