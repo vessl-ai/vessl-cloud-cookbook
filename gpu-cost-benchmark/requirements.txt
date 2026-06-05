@@ -1,0 +1,23 @@
+# Dependencies for the GPU cost benchmark recipe.
+#
+# torch is provided by the container image (a recent PyTorch + CUDA image;
+# Transformer Engine is required for the B200 te-fp8 training path and ships
+# in NGC PyTorch images). Do not re-pin torch here to avoid CUDA mismatches.
+#
+# Replace `>=` with `==` after a known-good run for bit-comparable repro.
+
+# Training (LoRA SFT)
+peft>=0.13
+trl>=0.11
+transformers>=4.45
+datasets>=3.0
+accelerate>=1.0
+
+# Inference serving + benchmarking
+vllm>=0.6
+aiohttp>=3.10
+
+# Analysis (figures + relative cost index) — also runnable CPU-only, no GPU
+pandas>=2.0
+matplotlib>=3.8
+numpy>=1.26

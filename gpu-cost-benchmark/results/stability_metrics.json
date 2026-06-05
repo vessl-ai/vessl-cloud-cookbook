@@ -1,0 +1,44 @@
+{
+  "A100": {
+    "n_steps_total": 220,
+    "n_steps_measured": 200,
+    "warmup_steps": 20,
+    "loss_first": 1.4628640413284302,
+    "loss_last": 1.1949293613433838,
+    "loss_min": 0.8332712054252625,
+    "loss_max": 1.5636475086212158,
+    "loss_median": 1.1079357266426086,
+    "grad_norm_max": 1650.55322265625,
+    "grad_norm_mean": 34.21574250042438,
+    "grad_norm_anomalies": 8,
+    "loss_spikes_gt_3sigma": 3
+  },
+  "H100": {
+    "n_steps_total": 220,
+    "n_steps_measured": 200,
+    "warmup_steps": 20,
+    "loss_first": 1.3793578147888184,
+    "loss_last": 1.1085485219955444,
+    "loss_min": 0.8064881563186646,
+    "loss_max": 1.481914758682251,
+    "loss_median": 1.04522705078125,
+    "grad_norm_max": 222.2008819580078,
+    "grad_norm_mean": 11.121672035902739,
+    "grad_norm_anomalies": 6,
+    "loss_spikes_gt_3sigma": 2
+  },
+  "B200": {
+    "n_steps_total": 220,
+    "n_steps_measured": 200,
+    "warmup_steps": 20,
+    "loss_first": 1.3672157526016235,
+    "loss_last": 1.1428205966949463,
+    "loss_min": 0.7995812892913818,
+    "loss_max": 1.4959611892700195,
+    "loss_median": 1.0475118160247803,
+    "grad_norm_max": 233.03338623046875,
+    "grad_norm_mean": 11.74080639719963,
+    "grad_norm_anomalies": 5,
+    "loss_spikes_gt_3sigma": 3
+  }
+}
