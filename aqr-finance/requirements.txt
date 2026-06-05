@@ -1,0 +1,22 @@
+# aqr-finance recipe — Python deps for the framework + data/eval layer.
+#
+# torch / triton / CUDA come from the container base image
+# (pytorch/pytorch:2.5.1-cuda12.4-cudnn9-devel) — do NOT pin them here or you
+# shadow the NVIDIA-tuned build. batch-job/submit.sh installs this same layer
+# inline inside the job; this file mirrors it for local Path-A runs
+# (`pip install -r requirements.txt` on top of a matching torch).
+unsloth
+unsloth_zoo
+transformers>=5.5
+trl>=0.12
+peft>=0.13
+accelerate>=1.0
+datasets>=3.0
+huggingface_hub>=0.26
+numpy<3.0
+pandas>=2.2
+scikit-learn>=1.5
+matplotlib>=3.10
+pyarrow>=18.0
+kaggle>=1.6
+tqdm>=4.66

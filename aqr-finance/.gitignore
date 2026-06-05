@@ -1,0 +1,40 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+worktrees/
+results/
+queue/
+
+# uv-specific dev lockfiles — requirements.txt is the canonical dep manifest
+# for this recipe (mirrors gemma4-finetuning). pyproject.toml + uv.lock are a
+# local dev convenience only and are not shipped.
+pyproject.toml
+uv.lock
+
+# OMC / agent orchestration state
+.omc/
+
+# macOS
+.DS_Store
+
+# Agent prompt files (generated per-session by launchers)
+CLAUDE.md
+AGENTS.md
+
+# Experimental code/artifacts
+dev/
+
+# Results file
+results.tsv
+
+# Local cache + dry-run artifacts
+*.bin
+run.log
+round.log
