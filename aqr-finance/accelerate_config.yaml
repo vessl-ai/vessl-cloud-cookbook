@@ -1,0 +1,17 @@
+compute_environment: LOCAL_MACHINE
+# DDP (data-parallel), not FSDP. Unsloth's OSS path is single-GPU optimized;
+# the multi-GPU enablement is plain DDP: each rank loads its own full model
+# copy and gradients sync via NCCL all-reduce. Works once device_map is
+# pinned per LOCAL_RANK in train.py — see unslothai/unsloth#3942.
+distributed_type: MULTI_GPU
+downcast_bf16: 'no'
+machine_rank: 0
+main_training_function: main
+mixed_precision: bf16
+num_machines: 1
+num_processes: 8
+rdzv_backend: static
+same_network: true
+tpu_use_cluster: false
+tpu_use_sudo: false
+use_cpu: false

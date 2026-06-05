@@ -1,0 +1,100 @@
+# qwen3-moe-fullweight-cpt.yaml — multi-GPU axolotl FSDP2 FULL-WEIGHT continued-PT (AQR finance, NEW arm)
+# Verified against axolotl docs (multi-gpu FSDP2 syntax + config-reference optimizer/
+# full-finetune/pretraining_dataset) AND a passed LoRA FSDP2 dry-run (2xH100 that sharded
+# the Qwen3.5 MoE DeltaNet hybrid, no NaN, loss ~2.20).
+#
+# WHAT CHANGED vs the LoRA dry-run yaml (qwen3-next-cpt.yaml):
+#   - NO `adapter:` block at all  → trains ALL 35B params (axolotl: omit adapter = full fine-tune).
+#     This is the "real continued pretraining" proof point a single 80GB H100 physically can't do
+#     (optim+weights alone ~140GB+); FSDP FULL_SHARD across 8xH100 is what unlocks it.
+#   - lr 1e-4 → 2e-5  (full-weight 35B is far more sensitive than a LoRA adapter; CPT-safe lr).
+#   - flash_attention: false → true  (image ships flash-attn; cuts activation memory → helps fit).
+#   - state_dict_type FULL → SHARDED  (gathering 35B to rank0 CPU on save can OOM the host).
+#
+# MEMORY NOTE (the binding risk this run must clear — UNVERIFIED until the 8xH100 probe):
+#   full-weight 35B, FSDP2 FULL_SHARD over 8 GPUs, adamw_torch_fused:
+#     weights bf16 70GB/8=8.75 + grads bf16 70GB/8=8.75 + Adam fp32(master+m+v) ~420GB/8=~52
+#     = ~70 GB/GPU + activations → ON THE EDGE of 80GB. If OOM at step 0/1 (fast, cheap):
+#     fallback ladder = (1) optimizer: paged_adamw_8bit  (2) +fsdp offload_params: true.
+
+base_model: Qwen/Qwen3.5-35B-A3B-Base
+model_type: AutoModelForCausalLM    # CONFIRMED (step-0): loads text-only Qwen3_5MoeForCausalLM head
+tokenizer_type: AutoTokenizer
+trust_remote_code: true             # transformers 5.x native qwen3_5_moe; harmless to keep
+# step-0: base is a multimodal VL MoE (Qwen3_5MoeForConditionalGeneration); the CausalLM head
+# trains the TEXT decoder only — correct for our text CPT. Full-weight trains every text-decoder
+# param: 10 Gated-Attention + 30 Gated-DeltaNet layers + 256-expert MoE MLPs + embeddings.
+
+# --- DATA ---------------------------------------------------------------------
+# PROBE uses the same tiny local slice as the LoRA dry-run (memory fit does NOT depend on corpus
+# size). For the real full run, swap to streaming `pretraining_dataset` (see full-run note below).
+datasets:
+  - path: /root/.cache/aqr-finance/text/fineweb-pit-2017-06.jsonl
+    ds_type: json
+    type: completion
+    field: text
+sequence_len: 2048             # PROBE #2: 4096→2048. probe #1 OOM'd in the 1st BACKWARD by ~1GB
+                               # (activation peak). halving seq frees ~2-3GB of activation. 2048 is a
+                               # standard CPT context len → does not weaken the full-weight proof point.
+sample_packing: true
+pad_to_sequence_len: true
+
+# --- NO ADAPTER = FULL-WEIGHT (axolotl config-reference: omit `adapter:` → train all params) ---
+# (intentionally no adapter / lora_* keys)
+
+# --- optim --------------------------------------------------------------------
+micro_batch_size: 1
+gradient_accumulation_steps: 1      # PROBE #3 (codex diagnosis): GA>1 makes Accelerate/Trainer use
+                                    # FSDP no_sync() on the first GA-1 microbatches, which accumulates
+                                    # **UNSHARDED full-model gradients** per GPU (~70 GB bf16 for 35B).
+                                    # That is the ~73-75 GB at first backward in probes #1 and #2.
+                                    # PyTorch FSDP docs: "FSDP will accumulate the full model gradients
+                                    # (instead of gradient shards)". GA=1 → sharded-only grads.
+                                    # Effective batch drops 32→8 seq (~16k tok/step); fine for CPT.
+num_epochs: 1
+learning_rate: 2.0e-5               # full-weight CPT-safe (vs LoRA's 1e-4). Lower to 1.0e-5 if NaN.
+                                    # NOTE: write as 2.0e-5 (NOT 2e-5) so YAML parses it as float, not str.
+lr_scheduler: cosine
+warmup_ratio: 0.03
+optimizer: adamw_torch_fused        # PROBE #4: probe #3 PROVED backward fits w/ GA=1 (codex no_sync fix)
+                                    # — forward+backward ran ~1m40s OOM-free. Then paged_adamw_8bit died
+                                    # in optim.step w/ "mixed torch.Tensor and DTensor" RuntimeError at
+                                    # bitsandbytes/optim/optimizer.py:520 → optimizer_update_32bit →
+                                    # DTensor dispatch (bnb #1633 class: bnb 8bit + FSDP2 DTensor incompat).
+                                    # adamw_torch_fused = pytorch-native, FSDP2 first-class. Mem tight:
+                                    # fp32 state ~52GB/GPU sharded + ~17.5GB weights/grads + activations
+                                    # ≈ ~75 GB on 80GB H100. If OOM → probe #5 activation_offloading:true.
+weight_decay: 0.0
+bf16: true
+flash_attention: true               # image has flash-attn; reduces activation mem (helps fit)
+# NOTE: DeltaNet fast path (flash-linear-attention + causal-conv1d) NOT installed → torch fallback
+#       (same as the passed dry-run). flash_attention here accelerates the 10 Gated-Attention layers.
+
+# --- FSDP2 (same syntax the dry-run PROVED; AC in fsdp_config, NOT top-level gradient_checkpointing) ---
+fsdp_version: 2
+fsdp_config:
+  offload_params: false             # try without first; flip to true if OOM after 8-bit optim
+  cpu_ram_efficient_loading: true
+  auto_wrap_policy: TRANSFORMER_BASED_WRAP
+  transformer_layer_cls_to_wrap: Qwen3_5MoeDecoderLayer   # CONFIRMED step-0: single class @ model.layers.N
+  state_dict_type: SHARDED_STATE_DICT   # full-weight: avoid gathering 35B to rank0 CPU on save
+  reshard_after_forward: true           # FSDP2 replacement for FULL_SHARD
+  activation_checkpointing: false       # PROBE #5: probe #4 used 42/80GB w/ AC=True (~37GB headroom).
+                                        # AC=False removes recompute overhead at the cost of extra
+                                        # activation residency → measuring real throughput uplift on
+                                        # the same 60-step probe before the full run sizing.
+
+output_dir: /root/.cache/aqr-finance/axolotl-fullweight-out
+logging_steps: 10
+save_steps: 5000                    # STAGE 3 (volume-mounted re-run): 10000→5000 for corruption insurance.
+                                    # ~11-12 mid-run saves vs 6; ~2 h save overhead vs 1 h (~+$19 vs prev run).
+                                    # save_total_limit:2 keeps disk bounded; volume is persistent →
+                                    # final merged/ survives pod terminate (the fix vs ephemeral run).
+save_total_limit: 2
+# max_steps: 60                     # REMOVED for real run. probe cap proved FSDP shards 35B + fits + trains
+                                    # finite loss (probe #4 AC=True 2.236 / probe #5 AC=False 2.243).
+                                    # REAL RUN sequencing (single 8×H100 job):
+                                    #   1) inline prep: `prepare_text.py --target_tokens 1B` → JSONL
+                                    #   2) axolotl reads JSONL via the `datasets:` block above + tokenizes
+                                    #   3) train until num_epochs:1 over the packed 1B-token corpus
+                                    #   4) FSDP merged checkpoint to /root/.cache/.../axolotl-fullweight-out/merged
