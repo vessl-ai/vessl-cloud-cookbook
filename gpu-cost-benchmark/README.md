@@ -30,7 +30,7 @@ This recipe is a **benchmark**, not a 15-minute tutorial: a full per-hardware sw
 - A **VESSL Cloud** account — [sign up](https://cloud.vessl.ai/~/signup).
 - A **Hugging Face access token** — `google/gemma-4-31B-it` is a gated model; request access and export `HF_TOKEN`.
 - An **8-GPU resource spec** for your target (e.g. `resourcespec-a100x8`, `resourcespec-h100x8`, `resourcespec-b200x8` — names vary per cluster).
-- An **Object volume** mounted at `/shared` for the dataset, checkpoints, and results.
+- An **Object storage volume** mounted at `/shared` for the dataset, checkpoints, and results.
 - **vesslctl** installed and authenticated (Path B) — see the [vesslctl docs](https://docs.cloud.vessl.ai/).
 
 ## Path A: interactive notebook (single hardware target)
@@ -56,7 +56,7 @@ chmod +x submit.sh
 RESOURCE_SPEC=resourcespec-a100x8 VESSL_OBJECT_VOLUME=<your-volume> ./submit.sh A100 my-first-run
 ```
 
-`submit.sh` uploads the scripts + dataset to your Object volume and calls `vesslctl job create`, which runs `run_full_per_hardware.sh A100` on the node. Tail logs with `vesslctl job logs -f gpu-cost-A100-my-first-run`.
+`submit.sh` uploads the scripts + dataset to your Object storage volume and calls `vesslctl job create`, which runs `run_full_per_hardware.sh A100` on the node. Tail logs with `vesslctl job logs -f gpu-cost-A100-my-first-run`.
 
 **To benchmark a different GPU, change one argument** — `./submit.sh H100 ...` or `./submit.sh B200 ...` (and set the matching `RESOURCE_SPEC`). The same scripts drive all three.
 
@@ -129,7 +129,7 @@ python analysis/compute_cost.py     # recomputes results/cost_summary.csv (relat
 
 ## Further reading
 
-- VESSL blog: [A100 vs H100 vs B200 for LoRA fine-tuning and inference: a cost benchmark](https://vessl.ai/en/blog/lora-finetuning-cost-a100-h100-b200)
+- VESSL AI blog: [A100 vs H100 vs B200 for LoRA fine-tuning and inference: a cost benchmark](https://vessl.ai/en/blog/lora-finetuning-cost-a100-h100-b200)
 - [vLLM speculative decoding](https://docs.vllm.ai/en/latest/features/spec_decode.html)
 - [PEFT (LoRA)](https://huggingface.co/docs/peft) · [Transformer Engine](https://docs.nvidia.com/deeplearning/transformer-engine/)
 - [VESSL Cloud docs](https://docs.cloud.vessl.ai)

@@ -6,7 +6,7 @@
 #
 # Prereqs:
 #   - vesslctl installed and authenticated.
-#   - An Object volume in your org to mount at /shared.
+#   - An Object storage volume in your org to mount at /shared.
 #   - An 8-GPU resource spec for the target hardware.
 #   - A Hugging Face token (gemma-4-31B-it is gated): export HF_TOKEN.
 #

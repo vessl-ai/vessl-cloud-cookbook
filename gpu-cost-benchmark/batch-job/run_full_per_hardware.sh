@@ -46,7 +46,7 @@
 #
 # Expected infra:
 #   * 8-GPU node (A100 / H100 / B200 SXM, 80 GB class).
-#   * Object volume mounted at /shared (dataset in, results out);
+#   * Object storage volume mounted at /shared (dataset in, results out);
 #     workspace/clone at /root.
 #
 # Copyright 2026 VESSL AI Inc. Licensed under Apache-2.0.

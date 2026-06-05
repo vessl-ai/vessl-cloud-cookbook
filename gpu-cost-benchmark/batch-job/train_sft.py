@@ -62,7 +62,7 @@ Launch (8-GPU node, run under torchrun):
 
 Expected infra:
   * 8x GPU node (A100 / H100 / B200 SXM, 80 GB class).
-  * Object volume mounted at /shared holding the packed dataset and receiving
+  * Object storage volume mounted at /shared holding the packed dataset and receiving
     run outputs; workspace/clone at /root.
   * Base model weights are pulled from the Hugging Face Hub (set HF_HOME to a
     persistent cache to avoid re-downloading the full checkpoint each run).

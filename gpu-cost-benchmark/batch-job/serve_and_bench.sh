@@ -51,7 +51,7 @@
 #
 # Expected infra:
 #   * 8-GPU node (A100 / H100 / B200 SXM, 80 GB class).
-#   * Object volume mounted at /shared for the prompt subset and results;
+#   * Object storage volume mounted at /shared for the prompt subset and results;
 #     workspace/clone at /root.
 #   * vllm, curl, and python with aiohttp available on PATH.
 #
