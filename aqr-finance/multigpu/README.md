@@ -26,7 +26,7 @@ Numbers measured on VESSL Cloud (8×H100 single node) — full breakdown in
 - **vesslctl** installed and authenticated — see the [vesslctl docs](https://docs.cloud.vessl.ai/). The active org/team determine where the job is billed (`vesslctl auth status`).
 - An **8×H100 SXM single-node** resource spec. Find with `vesslctl resource-spec list`, then `export AQR_RESOURCE_SPEC=resourcespec-...`.
 - A **persistent object volume** (~150 GB) for the data cache + the full-weight checkpoint. Create once with `vesslctl volume create`, then `export AQR_CACHE_VOLUME=objvol-...`.
-- **The `--object-volume` mount is a HARD prerequisite.** The submit script mounts it at `/root/.cache/aqr-finance`. Without it the container writes the checkpoint to ephemeral pod storage, which is **lost on pod terminate** — an early run cost ~$329 this way. Do not remove the flag.
+- **The `--object-volume` mount is a HARD prerequisite.** The submit script mounts it at `/root/.cache/aqr-finance`. Without it the container writes the checkpoint to ephemeral pod storage, which is **lost on pod terminate**. Do not remove the flag.
 - **Hugging Face read access** to `Qwen/Qwen3.5-35B-A3B-Base` (the base is downloaded inside the job).
 
 ## How to run

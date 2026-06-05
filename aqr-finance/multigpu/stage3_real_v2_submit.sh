@@ -11,8 +11,7 @@
 # The job writes its checkpoint to a PERSISTENT object volume so the merged
 # checkpoint survives pod termination. The `--object-volume` flag below is a
 # HARD prerequisite: without it, the container writes to ephemeral pod storage,
-# which is lost when the pod terminates. (Omitting it in an early run cost
-# ~$329 of wasted compute — the checkpoint vanished on terminate.)
+# which is lost when the pod terminates.
 #
 # Required env vars (set once per session, e.g. in your shell rc):
 #   AQR_CACHE_VOLUME    slug of the object volume holding ~/.cache/aqr-finance

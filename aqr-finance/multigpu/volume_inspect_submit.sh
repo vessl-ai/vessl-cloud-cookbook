@@ -3,7 +3,7 @@
 # volume contents. Use it to confirm that a full-weight run actually wrote its
 # merged checkpoint to the PERSISTENT volume (not ephemeral pod storage).
 #
-# This is the diagnostic that catches the "$329 mistake": if a submit script
+# This is the diagnostic that catches a missing `--object-volume` flag: if a submit script
 # forgets the `--object-volume` flag, the run writes to ephemeral storage and
 # the checkpoint is gone on pod terminate. This probe mounts the volume and
 # lists the paths that *should* contain the merged checkpoint, the baseline
