@@ -11,8 +11,9 @@ Each top-level folder is a self-contained recipe. Clone the repo (or just the fo
 | [gemma4-finetuning](./gemma4-finetuning) (reference implementation) | LoRA fine-tune Gemma 4 E4B on a small domain QA dataset | A100 SXM 80 GB × 1 | ~$0.43 | ~16 min |
 | [autoresearch](./autoresearch) | Run [karpathy/autoresearch](https://github.com/karpathy/autoresearch) on cloud GPUs — an AI agent runs its own LLM pretraining experiments overnight, fanning out K candidates per round in parallel | H100 SXM 80 GB × 1 | $0.33/experiment ($5 / 16-experiment cycle) | ~8 min/experiment (~40 min / 16-experiment cycle) |
 | [gpu-cost-benchmark](./gpu-cost-benchmark) | LoRA fine-tune **and** serve a 31B model (`gemma-4-31B-it`) and compare throughput + cost/token across A100/H100/B200 | A100 / H100 / B200 × 8 | relative index (no \$); see benchmarks | multi-cell 8-GPU sweep |
+| [aqr-finance](./aqr-finance) | LoRA continued-pretrain a 35B MoE base (`Qwen3.5-35B-A3B`) on a point-in-time FineWeb slice, then **measure the lookahead-bias leakage premium** on Kaggle JPX. Companion 8×H100 full-weight arm in [`multigpu/`](./aqr-finance/multigpu) | H100 SXM 80 GB × 1 | ~$60 | ~25 h |
 
-Prices as of 2026-05-03; see each recipe's `benchmarks.md` for details.
+Prices as of each recipe's measured run (2026-05-03 to 2026-05-21); see each recipe's `benchmarks.md` for the exact date and details.
 
 ## Quickstart
 
