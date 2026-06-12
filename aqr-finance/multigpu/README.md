@@ -108,14 +108,24 @@ instead of the LoRA adapter and compare the `leakage_premium` /
   `premium_reduction` CI still crosses zero — the lever on the measured signal
   is the **eval protocol**, not the trainable-parameter count. See
   [benchmarks.md](./benchmarks.md).
+- **The evaluation protocol is likely a larger lever than the token budget.**
+  The ChronoGPT cutoff-ladder control (in the companion blog post) shows the
+  measured premium is nearly independent of the base model's knowledge cutoff
+  (2011 / 2018 / 2024 base models land at similar premiums), which implies
+  the evaluation construction — not the pretraining corpus cutoff — drives much
+  of the signal. Robustness checks confirm the headline: an embargoed
+  chronological boundary and a walk-forward evaluation both return premiums that
+  exclude zero and reductions that include zero (see [benchmarks.md](./benchmarks.md)).
+  The open refinement lever is replacing the leaky-side GroupKFold with a
+  purged time-series CV (e.g., a rolling-window CV with a date-embargo gap)
+  that does not mix dates; that is more direct than raising the token budget.
 - **H100 / FSDP2 specific.** The memory accounting and config invariants above
   are tuned for 8×H100 80 GB. B200 / Rubin-class hardware is out of scope —
   the sharding math and the AC-off headroom would need re-measuring.
 
 ## Further reading
 
-- VESSL blog: the full engineering trail of this run (probes, OOM ladder, the
-  no_sync / DTensor fixes, the offline-merge NCCL timeout).
+- [VESSL blog](https://vessl.ai/en/blog/point-in-time-finance-llm-8xh100): full engineering trail of this run — probes, FSDP2 memory ladder, DTensor fixes, offline-merge NCCL timeout, ChronoGPT control experiment, and the embargoed / walk-forward robustness checks.
 - Parent [LoRA recipe](../README.md) — the single-H100 arm with the same eval.
 - Kelly, Malamud, Schwab & Xu, "Scaling Point-in-Time Language Models," SSRN
   Working Paper No. 6681860: <https://ssrn.com/abstract=6681860>

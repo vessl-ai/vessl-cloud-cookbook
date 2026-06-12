@@ -61,6 +61,13 @@ continued-PT pass does **not** significantly reduce it (the
 instrument you can rerun and extend — not as a recipe that removes
 look-ahead bias.
 
+> **Measurement precision note:** the GroupKFold evaluation isolates
+> stock identity but leaves dates mixed across folds, so the measured
+> premium contains both temporal leakage and evaluation-construction noise.
+> See [Known limitations](#known-limitations) for the open refinement lever
+> and the companion [full-weight multigpu arm](./multigpu/) for robustness
+> checks that confirm the headline finding.
+
 The smallest reproducible version of the idea breaks into four scripts:
 
 - **`prepare.py` streams FineWeb** and keeps only CC dumps `<= 2017-W26`
@@ -231,7 +238,17 @@ your edits probably broke this invariant.
   At ~23 h a run is effectively a full-day slot — one run at a time, not a
   sweep. Treat each run as expensive and plan accordingly.
 - **Measurement, not removal.** This recipe measures the leakage premium; it
-  does not promise to remove it. The honest result is that one 1 B-token
+  does not promise to remove it.
+- **GroupKFold is a proxy, not full temporal isolation.** The stock-disjoint
+  split prevents the evaluation from being gamed by memorizing stock
+  identities, but the training folds still contain data from multiple time
+  periods — dates can mix. The measured premium therefore captures both real
+  temporal leakage and noise from the evaluation construction itself. Robustness
+  checks (embargoed split boundary, walk-forward) were run on the full-weight
+  arm and confirm the premium is not a split-edge artifact — see the
+  [multigpu benchmarks](./multigpu/benchmarks.md). The open refinement lever is
+  replacing the leaky-side GroupKFold with a purged time-series CV that does not
+  mix dates; that is the most direct way to tighten the CI. The honest result is that one 1 B-token
   continued-PT pass does not significantly cut the premium (see
   [`benchmarks.md`](./benchmarks.md)). Don't read the adapter's lower point
   estimate as a fix.

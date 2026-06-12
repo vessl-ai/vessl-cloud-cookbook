@@ -69,6 +69,40 @@ amortized across reruns because the JSONL persists on the volume.
 
 Prices as of the measured run.
 
+## Robustness checks
+
+Two additional evaluations stress-test the headline GroupKFold measurement.
+
+**Embargoed chronological boundary.** JPX's target is a ~2-day-forward return,
+so a split that trains right up to 2020-12-31 could let the label horizon
+straddle the boundary. We re-scored `r2_leakage_off` with a 5-day embargo:
+same post-2021 test window, drop trading days immediately before the cut.
+
+| Metric | Base | Full-weight |
+|--------|-----:|------------:|
+| `r2_leakage_off` (embargoed) | −0.20 | −0.16 |
+| `leakage_premium` median [95% CI] | 0.21 [0.14, 0.35] | 0.13 [0.07, 0.26] |
+| `premium_reduction` median [95% CI] | 0.07 [−0.03, 0.24] | |
+
+The premium is essentially unchanged. The chronological baseline was not
+leaking at its edge, and the reduction remains non-significant.
+
+> **Scope note.** This purges the *honest-split* boundary only. It does not
+> replace the date-mixing GroupKFold on the leaky side with a purged
+> time-series CV — that larger eval-protocol rework is still the open lever.
+
+**Walk-forward (expanding window).** Five folds, pooled R²:
+
+| Model | Pooled R² (walk-forward) |
+|-------|-------------------------:|
+| Base | −0.25 |
+| Full-weight | −0.27 |
+
+The no-alpha read holds across multiple test periods, not just the single
+2021 boundary. The full-weight checkpoint is fractionally worse than the
+base here — one more reason to read the LoRA/full-weight comparison as
+"no alpha," not "the training helps."
+
 ## ⚠️ Honest limitation
 
 - **No alpha.** Both `r2_leakage_off` are negative (base −0.1936, full-weight
